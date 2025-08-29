@@ -43,7 +43,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [PERMISSIONS.READ_PROJECT], // covers /api/projects/:id and nested like /api/projects/:id/users
       POST: [PERMISSIONS.MANAGE_PROJECT_USERS], // membership additions under /api/projects/:id/users
-      PATCH: [PERMISSIONS.UPDATE_PROJECT], // updating a project via PATCH /api/projects/:id
+      PATCH: [PERMISSIONS.EDIT_PROJECT], // updating a project via PATCH /api/projects/:id
       DELETE: [PERMISSIONS.MANAGE_PROJECT_USERS], // membership removal via /api/projects/:id/users
     },
   },
@@ -52,7 +52,7 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     methods: {
       GET: [PERMISSIONS.READ_PROJECT],
       POST: [PERMISSIONS.CREATE_PROJECT],
-      PATCH: [PERMISSIONS.UPDATE_PROJECT],
+      PATCH: [PERMISSIONS.EDIT_PROJECT],
       DELETE: [PERMISSIONS.DELETE_PROJECT],
     },
   },
