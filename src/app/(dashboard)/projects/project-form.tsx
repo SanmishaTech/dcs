@@ -8,7 +8,7 @@ import { Form } from '@/components/ui/form';
 import { AppCard } from '@/components/common/app-card';
 import { TextInput } from '@/components/common/text-input';
 import { AppButton } from '@/components/common/app-button';
-import { FormSection, FormRow } from '@/components/common/_app-form';
+import { FormSection, FormRow } from '@/components/common/app-form';
 import { apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';

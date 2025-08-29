@@ -9,7 +9,7 @@ import { EmailInput, PasswordInput, AppSelect, AppButton } from '@/components/co
 import { AppCheckbox } from '@/components/common/app-checkbox';
 import { AppCard } from '@/components/common/app-card';
 import { TextInput } from '@/components/common/text-input';
-import { FormSection, FormRow } from '@/components/common/_app-form';
+import { FormSection, FormRow } from '@/components/common/app-form';
 import { apiPost, apiPatch } from '@/lib/api-client';
 import { ROLES } from '@/config/roles';
 import { toast } from '@/lib/toast';
