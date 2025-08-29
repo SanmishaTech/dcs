@@ -14,16 +14,18 @@ export interface TextInputProps {
   className?: string;
   required?: boolean;
   prefixIcon?: React.ReactNode;
+  /** Optional class for the outer FormItem wrapper (useful for grid spans) */
+  itemClassName?: string;
 }
 
-export function TextInput({ control, name, label, type='text', description, placeholder, disabled, autoComplete, className, required, prefixIcon }: TextInputProps) {
+export function TextInput({ control, name, label, type='text', description, placeholder, disabled, autoComplete, className, required, prefixIcon, itemClassName }: TextInputProps) {
   return (
     <FormField
       // @ts-expect-error relaxed typing for generic use
       control={control}
       name={name}
       render={({ field }) => (
-        <FormItem>
+        <FormItem className={itemClassName}>
           <FormLabel>
             {label}
             {required ? <span className='ml-0.5 text-destructive'>*</span> : null}

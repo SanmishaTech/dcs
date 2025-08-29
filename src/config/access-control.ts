@@ -9,6 +9,10 @@ export const PAGE_ACCESS_RULES: { prefix: string; permissions: string[] }[] = [
   { prefix: '/users/new', permissions: [PERMISSIONS.EDIT_USERS] },            // create user page
   { prefix: '/users/', permissions: [PERMISSIONS.EDIT_USERS] },                // edit user pages (/users/:id/...)
   { prefix: '/users', permissions: [PERMISSIONS.READ_USERS] },                 // users list (view only)
+  // Projects (adjust actual router paths as implemented)
+  { prefix: '/projects/new', permissions: [PERMISSIONS.CREATE_PROJECT] },
+  { prefix: '/projects/', permissions: [PERMISSIONS.READ_PROJECT] },           // details/edit pages /projects/:id
+  { prefix: '/projects', permissions: [PERMISSIONS.READ_PROJECT] },            // project list
   // add more page rules here (place more specific prefixes first)
 ];
 
@@ -31,6 +35,33 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       POST: [PERMISSIONS.EDIT_USERS],
       PATCH: [PERMISSIONS.EDIT_USERS],
       DELETE: [PERMISSIONS.DELETE_USERS],
+    },
+  },
+  // More specific projects sub-path rule (must appear before generic '/api/projects' to win longest-prefix)
+  {
+    prefix: '/api/projects/',
+    methods: {
+      GET: [PERMISSIONS.READ_PROJECT], // covers /api/projects/:id and nested like /api/projects/:id/users
+      POST: [PERMISSIONS.MANAGE_PROJECT_USERS], // membership additions under /api/projects/:id/users
+      PATCH: [PERMISSIONS.UPDATE_PROJECT], // updating a project via PATCH /api/projects/:id
+      DELETE: [PERMISSIONS.MANAGE_PROJECT_USERS], // membership removal via /api/projects/:id/users
+    },
+  },
+  {
+    prefix: '/api/projects',
+    methods: {
+      GET: [PERMISSIONS.READ_PROJECT],
+      POST: [PERMISSIONS.CREATE_PROJECT],
+      PATCH: [PERMISSIONS.UPDATE_PROJECT],
+      DELETE: [PERMISSIONS.DELETE_PROJECT],
+    },
+  },
+  {
+    prefix: '/api/project-files', // adjust if nesting under /api/projects/:id/files
+    methods: {
+      GET: [PERMISSIONS.READ_PROJECT_FILE],
+      POST: [PERMISSIONS.UPLOAD_PROJECT_FILE],
+      DELETE: [PERMISSIONS.DELETE_PROJECT_FILE],
     },
   },
   // add more API rules here

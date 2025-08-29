@@ -33,11 +33,8 @@ export const FormSection = React.forwardRef<HTMLElement, FormSectionProps>(funct
  * FormRow: responsive grid row. Provide number of columns (1-4 typical).
  */
 export interface FormRowProps extends React.HTMLAttributes<HTMLDivElement> {
-  /**
-   * Desired number of columns at desktop (lg breakpoint). Mobile defaults to 1 column.
-   * For earlier breakpoints, use smCols / mdCols.
-   */
-  cols?: 1 | 2 | 3 | 4 | 5 | 6;
+  /** Desired number of columns at desktop (lg breakpoint). Mobile defaults to 1 column. */
+  cols?: number; // allow up to 12 (validated at runtime)
   /** Number of columns from the sm breakpoint upward (optional) */
   smCols?: number;
   /** Number of columns from the md breakpoint upward (optional) */
@@ -54,7 +51,10 @@ export const FormRow = React.forwardRef<HTMLDivElement, FormRowProps>(function F
   if (smCols) classes.push(`sm:grid-cols-${smCols}`);
   if (mdCols) classes.push(`md:grid-cols-${mdCols}`);
   const finalLg = lgCols || cols; // allow explicit override
-  if (finalLg && finalLg > 1) classes.push(`lg:grid-cols-${finalLg}`);
+  if (finalLg && finalLg > 1) {
+    const safe = Math.min(Math.max(finalLg, 1), 12);
+    classes.push(`lg:grid-cols-${safe}`);
+  }
 
   return (
     <div ref={ref} className={cn(classes.join(' '), 'gap-6 items-start', className)} {...rest}>

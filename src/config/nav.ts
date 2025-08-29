@@ -29,6 +29,12 @@ export const NAV_ITEMS: NavItem[] = [
     permission: PERMISSIONS.VIEW_DASHBOARD,
   },
   {
+    title: 'Projects',
+    href: '/projects',
+    icon: LayoutDashboard,
+    permission: PERMISSIONS.READ_PROJECT,
+  },
+  {
     type: 'group',
     title: 'Settings',
     icon: Settings,
@@ -41,154 +47,4 @@ export const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
-  {
-    type: 'group',
-    title: 'Dummy1',
-    icon: Settings,
-    children: [
-      {
-        title: 'Users',
-        href: '#1',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-            {
-        title: 'Users',
-        href: '#2',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-      {
-        title: 'Users',
-        href: '#3',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },      
-    ],
-  },
-  {
-    type: 'group',
-    title: 'Dummy2',
-    icon: Settings,
-    children: [
-      {
-        title: 'Users',
-        href: '#4',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-            {
-        title: 'Users',
-        href: '#5',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-      {
-        title: 'Users',
-        href: '#6',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },      
-    ],
-  },  
-  {
-    type: 'group',
-    title: 'Dummy3',
-    icon: Settings,
-    children: [
-      {
-        title: 'Users',
-        href: '#7',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-            {
-        title: 'Users',
-        href: '#8',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-      {
-        title: 'Users',
-        href: '#9',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },      
-    ],
-  },  
-  {
-    type: 'group',
-    title: 'Dummy4',
-    icon: Settings,
-    children: [
-      {
-        title: 'Users',
-        href: '#10',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-            {
-        title: 'Users',
-        href: '#11',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-      {
-        title: 'Users',
-        href: '#12',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },      
-    ],
-  },  
-  {
-    type: 'group',
-    title: 'Dummy5',
-    icon: Settings,
-    children: [
-      {
-        title: 'Users',
-        href: '#13',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-            {
-        title: 'Users',
-        href: '#14',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-      {
-        title: 'Users',
-        href: '#15',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },      
-    ],
-  },  
-  {
-    type: 'group',
-    title: 'Dummy6',
-    icon: Settings,
-    children: [
-      {
-        title: 'Users',
-        href: '#16',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-            {
-        title: 'Users',
-        href: '#17',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },
-      {
-        title: 'Users',
-        href: '#18',
-        icon: Users,
-        permission: PERMISSIONS.VIEW_DASHBOARD,
-      },      
-    ],
-  },  
 ];
