@@ -107,9 +107,9 @@ export function ProjectFiles({ projectId }: { projectId: number }) {
                   name='file'
                   label='File'
                   required
-                  description='Max 20MB. Images, PDF, plain text.'
+                  description='Max 20MB. Images, PDF, text, CSV, Excel (.xls/.xlsx).'
                   maxSizeBytes={20 * 1024 * 1024}
-                  accept='image/*,application/pdf,text/plain'
+                  accept='image/*,application/pdf,text/plain,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 />
                 <TextInput
                   control={form.control}

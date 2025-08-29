@@ -48,7 +48,15 @@ export async function POST(req: NextRequest) {
   let url: string | undefined; // not used for local storage, placeholder
 
   const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-  const ALLOWED_MIME_PREFIXES = ['image/', 'application/pdf', 'text/plain'];
+  // Allow images, PDF, plain text, CSV, and Excel spreadsheets
+  const ALLOWED_MIME_PREFIXES = [
+    'image/',
+    'application/pdf',
+    'text/plain',
+    'text/csv',
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+  ];
 
   if (contentType.includes('multipart/form-data')) {
     // Handle real file upload

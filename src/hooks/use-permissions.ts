@@ -2,10 +2,12 @@
 // Intended for lightweight conditional rendering in client components.
 "use client";
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { ROLES_PERMISSIONS, PERMISSIONS } from '@/config/roles';
+import { ROLES_PERMISSIONS, PERMISSIONS, ROLES } from '@/config/roles';
 import { useMemo } from 'react';
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+type RoleKey = typeof ROLES[keyof typeof ROLES];
+type RolePermissionsMap = Record<RoleKey, Permission[]>;
 
 export interface UsePermissionsResult {
   role: string | null;
@@ -18,8 +20,9 @@ export interface UsePermissionsResult {
 export function usePermissions(): UsePermissionsResult {
   const { user } = useCurrentUser();
   const perms: Permission[] = useMemo(() => {
-    if (!user) return [] as Permission[];
-    return (ROLES_PERMISSIONS as Record<string, Permission[]>)[user.role] || [];
+    if (!user) return [];
+    const map = ROLES_PERMISSIONS as unknown as RolePermissionsMap;
+    return map[user.role as RoleKey] || [];
   }, [user]);
 
   function can(...required: Permission[]) {
