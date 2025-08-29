@@ -64,6 +64,23 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       DELETE: [PERMISSIONS.DELETE_PROJECT_FILE],
     },
   },
+  {
+    prefix: '/api/blocks',
+    methods: {
+      GET: [PERMISSIONS.READ_CRACKS],
+      POST: [PERMISSIONS.MANAGE_BLOCKS],
+      PATCH: [PERMISSIONS.MANAGE_BLOCKS],
+      DELETE: [PERMISSIONS.MANAGE_BLOCKS],
+    },
+  },
+  {
+    prefix: '/api/cracks',
+    methods: {
+      GET: [PERMISSIONS.READ_CRACKS],
+      POST: [PERMISSIONS.IMPORT_CRACKS],
+      DELETE: [PERMISSIONS.IMPORT_CRACKS],
+    },
+  },
   // add more API rules here
 ];
 

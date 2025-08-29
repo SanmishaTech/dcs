@@ -1,50 +1,55 @@
 // RBAC constants: stable permission & role identifiers plus role->permission mapping.
 // Extend by adding new PERMISSIONS keys and including them in relevant ROLES_PERMISSIONS entries.
 export const PERMISSIONS = {
-  // Core / Dashboard
-  VIEW_DASHBOARD: "VIEW:DASHBOARD",
+	// Core / Dashboard
+	VIEW_DASHBOARD: 'VIEW:DASHBOARD',
 
-  // Users (existing internal management)
-  READ_USERS: "READ:USERS",
-  EDIT_USERS: "EDIT:USERS",
-  DELETE_USERS: "MANAGE:USERS",
+	// Users (existing internal management)
+	READ_USERS: 'READ:USERS',
+	EDIT_USERS: 'EDIT:USERS',
+	DELETE_USERS: 'MANAGE:USERS',
 
-  // Projects
-  CREATE_PROJECT: "CREATE:PROJECT",    // create new project (Admin only)
-  READ_PROJECT: "READ:PROJECT",        // view project(s)
-  UPDATE_PROJECT: "UPDATE:PROJECT",    // edit project metadata
-  DELETE_PROJECT: "DELETE:PROJECT",    // delete project
-  MANAGE_PROJECT_USERS: "MANAGE:PROJECT:USERS", // add/remove users to project
+	// Projects
+	CREATE_PROJECT: 'CREATE:PROJECT', // create new project (Admin only)
+	READ_PROJECT: 'READ:PROJECT', // view project(s)
+	EDIT_PROJECT: 'EDIT:PROJECT', // edit project metadata
+	DELETE_PROJECT: 'DELETE:PROJECT', // delete project
+	MANAGE_PROJECT_USERS: 'MANAGE:PROJECT:USERS', // add/remove users to project
 
-  // Project Files
-  UPLOAD_PROJECT_FILE: "UPLOAD:PROJECT:FILE",  // upload / attach file to project
-  READ_PROJECT_FILE: "READ:PROJECT:FILE",      // download/view project files
-  DELETE_PROJECT_FILE: "DELETE:PROJECT:FILE",  // remove project files
+	// Project Files
+	UPLOAD_PROJECT_FILE: 'UPLOAD:PROJECT:FILE', // upload / attach file to project
+	READ_PROJECT_FILE: 'READ:PROJECT:FILE', // download/view project files
+	DELETE_PROJECT_FILE: 'DELETE:PROJECT:FILE', // remove project files
+	// Blocks & Cracks
+	IMPORT_CRACKS: 'IMPORT:CRACKS', // import crack identifications via Excel
+	READ_CRACKS: 'READ:CRACKS',
+	MANAGE_BLOCKS: 'MANAGE:BLOCKS',
 } as const;
 
 export const ROLES = {
-  ADMIN: "admin",          // full system access
-  USER: "user",            // internal staff (can see dashboard, read projects/users, but not create projects or upload files)
-  PROJECT_USER: "project_user", // external / client user tied to specific projects (can only read its own project + files)
+	ADMIN: 'admin', // full system access
+	USER: 'user', // internal staff (can see dashboard, read projects/users, but not create projects or upload files)
+	PROJECT_USER: 'project_user', // external / client user tied to specific projects (can only read its own project + files)
 } as const;
 
 export const ROLES_PERMISSIONS = {
-  // Admin: everything
-  [ROLES.ADMIN]: [
-    ...Object.values(PERMISSIONS)
-  ],
-  // Internal staff user: can view dashboard, read users & projects & project files (but no creation/upload/delete)
-  [ROLES.USER]: [
-    PERMISSIONS.VIEW_DASHBOARD,
-    PERMISSIONS.READ_USERS,
-    PERMISSIONS.READ_PROJECT,
-    PERMISSIONS.READ_PROJECT_FILE,
-  ],
-  // Project (client) user: minimal – only read project + its files (no dashboard access if you prefer; remove if needed)
-  [ROLES.PROJECT_USER]: [
-    PERMISSIONS.READ_PROJECT,
-    PERMISSIONS.READ_PROJECT_FILE,
-  ],
+	// Admin: everything
+	[ROLES.ADMIN]: [...Object.values(PERMISSIONS)],
+	// Internal staff user: can view dashboard, read users & projects & project files (but no creation/upload/delete)
+	[ROLES.USER]: [
+		PERMISSIONS.VIEW_DASHBOARD,
+		PERMISSIONS.READ_USERS,
+		PERMISSIONS.READ_PROJECT,
+		PERMISSIONS.READ_PROJECT_FILE,
+		PERMISSIONS.READ_CRACKS,
+	],
+	// Project (client) user: minimal – only read project + its files (no dashboard access if you prefer; remove if needed)
+	[ROLES.PROJECT_USER]: [
+		PERMISSIONS.VIEW_DASHBOARD,
+		PERMISSIONS.READ_PROJECT,
+		PERMISSIONS.READ_PROJECT_FILE,
+		PERMISSIONS.READ_CRACKS,
+	],
 } as const;
 
 // NOTE:

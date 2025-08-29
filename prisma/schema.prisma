@@ -51,6 +51,8 @@ model Project {
   description String?          @db.Text
   users       ProjectUser[]
   files       ProjectFile[]
+  blocks      Block[]
+  cracks      CrackIdentification[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -93,4 +95,43 @@ model ProjectFile {
   @@index([projectId])
   @@index([uploadedById])
   @@index([mimeType])
+}
+
+// Physical / logical block within a project that contains crack identifications
+model Block {
+  id          Int                    @id @default(autoincrement())
+  projectId   Int
+  name        String                 // e.g. Block A / Segment 1
+  project     Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cracks      CrackIdentification[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@unique([projectId, name])        // block names unique within project
+  @@index([projectId])
+}
+
+// Individual crack record captured under a block
+model CrackIdentification {
+  id            Int       @id @default(autoincrement())
+  projectId     Int       // duplicated for easier querying/filtering
+  blockId       Int
+  chainageFrom  String?   
+  chainageTo    String?   
+  rl            Float?    
+  lengthMm      Float?    
+  widthMm       Float?    
+  heightMm      Float?    
+  defectType    String?   
+  videoFileName String?
+  // Video timeline position (HH:MM:SS). Stored as fixed-length CHAR(8) string (e.g. 03:30:00).
+  startTime     String?  @db.Char(8)
+  endTime       String?  @db.Char(8)
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  block       Block     @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([blockId])
 }

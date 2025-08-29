@@ -2,7 +2,7 @@
 import useSWR from 'swr';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { apiGet } from '@/lib/api-client';
+import { apiGet, apiUpload, apiDelete } from '@/lib/api-client';
 import { AppCard } from '@/components/common/app-card';
 import { AppButton } from '@/components/common/app-button';
 import { UploadInput } from '@/components/common/upload-input';
@@ -52,15 +52,7 @@ export function ProjectFiles({ projectId }: { projectId: number }) {
     fd.append('title', values.title.trim());
     setUploading(true);
     try {
-      const res = await fetch('/api/project-files', { method: 'POST', body: fd, credentials: 'include' });
-      if (!res.ok) {
-        const j: unknown = await res.json().catch(() => ({}));
-        let msg: string | undefined;
-        if (j && typeof j === 'object' && 'message' in j) {
-          const m = (j as Record<string, unknown>).message; if (typeof m === 'string') msg = m;
-        }
-        throw new Error(msg || 'Upload failed');
-      }
+  await apiUpload('/api/project-files', fd);
       toast.success('Uploaded');
       form.reset({ file: null, title: '' });
       mutate();
@@ -70,15 +62,7 @@ export function ProjectFiles({ projectId }: { projectId: number }) {
   async function handleDelete(id: number) {
     if (!confirm('Delete this file?')) return;
     try {
-      const res = await fetch('/api/project-files', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), credentials: 'include' });
-      if (!res.ok) {
-        const j: unknown = await res.json().catch(() => ({}));
-        let msg: string | undefined;
-        if (j && typeof j === 'object' && 'message' in j) {
-          const m = (j as Record<string, unknown>).message; if (typeof m === 'string') msg = m;
-        }
-        throw new Error(msg || 'Delete failed');
-      }
+      await apiDelete(`/api/project-files?id=${id}`);
       toast.success('Deleted');
       mutate();
     } catch (e) { toast.error((e as Error).message); }

@@ -41,10 +41,12 @@ export interface FormRowProps extends React.HTMLAttributes<HTMLDivElement> {
   mdCols?: number;
   /** Explicit override for lg breakpoint if you need different than cols (rare). */
   lgCols?: number;
+  /** Breakpoint from which the 'cols' value should apply (default 'lg'). */
+  from?: 'md' | 'lg';
 }
 
 export const FormRow = React.forwardRef<HTMLDivElement, FormRowProps>(function FormRow(
-  { className, cols = 1, smCols, mdCols, lgCols, children, ...rest }, ref
+  { className, cols = 1, smCols, mdCols, lgCols, from = 'lg', children, ...rest }, ref
 ) {
   // Inherently desktop-first: base is 1 column; add earlier breakpoints only if specified.
   const classes: string[] = ['grid', 'grid-cols-1'];
@@ -53,7 +55,11 @@ export const FormRow = React.forwardRef<HTMLDivElement, FormRowProps>(function F
   const finalLg = lgCols || cols; // allow explicit override
   if (finalLg && finalLg > 1) {
     const safe = Math.min(Math.max(finalLg, 1), 12);
-    classes.push(`lg:grid-cols-${safe}`);
+    if (from === 'md') {
+      classes.push(`md:grid-cols-${safe}`);
+    } else {
+      classes.push(`lg:grid-cols-${safe}`);
+    }
   }
 
   return (

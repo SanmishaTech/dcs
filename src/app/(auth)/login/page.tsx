@@ -34,7 +34,7 @@ export default function LoginPage() {
 		try {
 			await apiPost('/api/auth/login', data, { showErrorToast: true });
 			toast.success('Login Successful', { description: 'Welcome back!' });
-			router.push('/users');
+			router.push('/dashboard');
 		} catch {
 			// toast already shown by api-client
 		}

@@ -53,6 +53,9 @@ export const apiPut =  <T = unknown, B = unknown>(path: string, body: B, opts?: 
 export const apiPatch =<T = unknown, B = unknown>(path: string, body: B, opts?: ApiClientOptions) => request<T>('PATCH', path, body, opts);
 export const apiDelete = <T = unknown>(path: string, opts?: ApiClientOptions) => request<T>('DELETE', path, undefined, opts);
 
+// Multipart/FormData upload helper (delegates to apiPost; Axios sets headers automatically)
+export const apiUpload = <T = unknown>(path: string, form: FormData, opts?: ApiClientOptions) => request<T>('POST', path, form, opts);
+
 // SWR helpers (return plain data)
 export const swrFetcher = <T = unknown>(path: string) => apiGet<T>(path);
 export const swrMutationFetcher = <T = unknown, B = unknown>(url: string, { arg }: { arg: B }) => apiPost<T, B>(url, arg);

@@ -8,7 +8,7 @@ import { Form } from '@/components/ui/form';
 import { AppCard } from '@/components/common/app-card';
 import { TextInput } from '@/components/common/text-input';
 import { AppButton } from '@/components/common/app-button';
-import { FormSection, FormRow } from '@/components/common/app-form';
+import { FormSection, FormRow } from '@/components/common/_app-form';
 import { apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
@@ -97,9 +97,9 @@ export default function ProjectForm({ mode, initial, onSuccess, redirectOnSucces
               <FormRow cols={1}>
                 <TextInput control={control} name='name' label='Project Name' required placeholder='e.g. Alpha Initiative' />
               </FormRow>
-              <FormRow cols={2}>
-                <TextInput control={control} name='clientName' label='Client Name' required placeholder='e.g. ACME Corp' />
-                <TextInput control={control} name='location' label='Location' placeholder='City / Region' />
+              <FormRow cols={12} from='md'>
+                <TextInput span={8} spanFrom='md' control={control} name='clientName' label='Client Name' required placeholder='e.g. ACME Corp' />
+                <TextInput span={4} spanFrom='md' control={control} name='location' label='Location' placeholder='City / Region' />
               </FormRow>
               <FormRow cols={1}>
                 <TextInput control={control} name='description' label='Short Description' placeholder='Optional brief summary' />

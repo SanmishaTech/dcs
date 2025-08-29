@@ -32,7 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
     title: 'Projects',
     href: '/projects',
     icon: LayoutDashboard,
-    permission: PERMISSIONS.READ_PROJECT,
+    permission: PERMISSIONS.EDIT_PROJECT,
   },
   {
     type: 'group',

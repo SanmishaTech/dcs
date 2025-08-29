@@ -127,10 +127,13 @@ export default function ProjectsPage() {
           onSortChange={s => toggleSort(s.field)}
           stickyColumns={1}
           renderRowActions={p => {
-            if (!can(PERMISSIONS.UPDATE_PROJECT) && !can(PERMISSIONS.DELETE_PROJECT)) return null;
+            if (!can(PERMISSIONS.EDIT_PROJECT) && !can(PERMISSIONS.DELETE_PROJECT)) return null;
             return (
               <div className='flex'>
-                {can(PERMISSIONS.UPDATE_PROJECT) && (
+                <Link href={`/projects/${p.id}/cracks`} className='mr-1'>
+                  <AppButton size='sm' variant='secondary' type='button'>Cracks</AppButton>
+                </Link>
+                {can(PERMISSIONS.EDIT_PROJECT) && (
                   <Link href={`/projects/${p.id}/edit`}> <EditButton tooltip='Edit Project' aria-label='Edit Project' /> </Link>
                 )}
                 {can(PERMISSIONS.DELETE_PROJECT) && (
