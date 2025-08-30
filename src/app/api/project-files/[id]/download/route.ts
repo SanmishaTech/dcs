@@ -24,11 +24,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       if (!membership) return Error('Forbidden', 403);
     }
   // New path
-  let diskPath = path.join(process.cwd(), 'upload', 'projects', String(fileRec.projectId), fileRec.filename);
+  let diskPath = path.join(process.cwd(), 'uploads', 'projects', String(fileRec.projectId), fileRec.filename);
     let stat; 
     try { stat = await fs.stat(diskPath); } catch {
-      // Fallback to legacy location (/upload/<projectId>/filename) for previously uploaded files
-      const legacy = path.join(process.cwd(), 'upload', String(fileRec.projectId), fileRec.filename);
+  // Fallback to legacy location (/upload/<projectId>/filename) or old structured path for previously uploaded files
+  const legacy = path.join(process.cwd(), 'upload', String(fileRec.projectId), fileRec.filename);
       try { stat = await fs.stat(legacy); diskPath = legacy; } catch { return Error('File missing on disk', 410); }
     }
     if (!stat.isFile()) return Error('File missing on disk', 410);

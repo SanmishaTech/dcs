@@ -95,10 +95,10 @@ export async function POST(req: NextRequest) {
 		// Generate deterministic unique filename
 		const ext = path.extname(originalName) || '';
 		storedFilename = `${Date.now()}-${crypto.randomUUID()}${ext}`;
-		// New structured path under /upload/projects/<projectId>
+		// New structured path under /uploads/projects/<projectId>
 		const uploadRoot = path.join(
 			process.cwd(),
-			'upload',
+			'uploads',
 			'projects',
 			String(pid)
 		);
@@ -218,7 +218,7 @@ export async function DELETE(req: NextRequest) {
 		// Attempt unlink (ignore failure)
 		const uploadRoot = path.join(
 			process.cwd(),
-			'upload',
+			'uploads',
 			'projects',
 			String(record.projectId)
 		);
