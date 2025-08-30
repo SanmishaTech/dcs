@@ -82,8 +82,15 @@ export async function POST(req: NextRequest) {
 		if (projectIdRaw == null) return Error('projectId required', 400);
 		pid = Number(projectIdRaw);
 		if (Number.isNaN(pid)) return Error('Invalid projectId', 400);
-		const file = form.get('file');
-		if (!(file instanceof File)) return Error('file field required', 400);
+		const rawFile = form.get('file');
+		// Avoid referencing global File directly (may be undefined in some Node builds)
+		const isFileLike = (f: unknown): f is { name: string; type?: string; size: number; arrayBuffer: () => Promise<ArrayBuffer> } => {
+			if (!f || typeof f !== 'object') return false;
+			const obj = f as Record<string, unknown>;
+			return typeof obj.name === 'string' && typeof obj.size === 'number' && typeof obj.arrayBuffer === 'function';
+		};
+		if (!isFileLike(rawFile)) return Error('file field required', 400);
+		const file = rawFile;
 		originalName = file.name;
 		mimeType = file.type || 'application/octet-stream';
 		size = file.size;
