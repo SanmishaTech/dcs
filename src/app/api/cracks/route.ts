@@ -118,10 +118,14 @@ export async function POST(req: NextRequest) {
 	if (!projectId) return ApiError('projectId required', 400);
 
 	const form = await req.formData();
-	const file = form.get('file');
-	if (!file || !(file instanceof File)) return ApiError('file required', 400);
+	const fileEntry = form.get('file');
+	const isFileLike = (v: unknown): v is Blob & { name?: string } => {
+		if (!v || typeof v !== 'object') return false;
+		return 'arrayBuffer' in v && typeof (v as { arrayBuffer?: unknown }).arrayBuffer === 'function';
+	};
+	if (!isFileLike(fileEntry)) return ApiError('file required', 400);
 
-	const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+	const wb = XLSX.read(await fileEntry.arrayBuffer(), { type: 'array' });
 	if (!wb.SheetNames.length) return ApiError('no sheet', 400);
 	const sheet = wb.Sheets[wb.SheetNames[0]];
 	const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
