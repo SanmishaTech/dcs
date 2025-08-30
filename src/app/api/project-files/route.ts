@@ -222,18 +222,9 @@ export async function DELETE(req: NextRequest) {
 			'projects',
 			String(record.projectId)
 		);
-		const legacyRoot = path.join(
-			process.cwd(),
-			'upload',
-			String(record.projectId)
-		); // backward compatibility cleanup
 		if (record.filename && record.projectId != null) {
 			const diskPath = path.join(uploadRoot, record.filename);
-			const legacyPath = path.join(legacyRoot, record.filename);
-			fs.unlink(diskPath).catch(() => {
-				// try legacy location
-				fs.unlink(legacyPath).catch(() => {});
-			});
+			fs.unlink(diskPath).catch(() => {});
 		}
 		return Success(deleted);
 	} catch (e: unknown) {
