@@ -196,8 +196,15 @@ export async function POST(req: NextRequest) {
 		const widthMm = num(row[COL_WIDTH]);
 		const heightMm = num(row[COL_HEIGHT]);
 		const videoFileName = String(row[COL_VIDEO] || '').trim() || null;
-		const startTime = parseTime(row[COL_START]);
-		const endTime = parseTime(row[COL_END]);
+		const rawStart = row[COL_START];
+		const rawEnd = row[COL_END];
+		const startTime = parseTime(rawStart);
+		const endTime = parseTime(rawEnd);
+		const rawStartProvided = String(rawStart ?? '').trim() !== '';
+		const rawEndProvided = String(rawEnd ?? '').trim() !== '';
+		if (rawStartProvided && !startTime) { errors.push({ row: r+1, error: 'Invalid startTime format' }); continue; }
+		if (rawEndProvided && !endTime) { errors.push({ row: r+1, error: 'Invalid endTime format' }); continue; }
+		if (rawStartProvided !== rawEndProvided) { errors.push({ row: r+1, error: 'Both startTime and endTime required together' }); continue; }
 		if (startTime && endTime && startTime > endTime) { errors.push({ row: r+1, error: 'startTime > endTime' }); continue; }
 		// Accept only if meaningful defect/time/dimension data (RL alone not enough)
 		const hasContent = !!(defectType || startTime || endTime || lengthMm || widthMm || heightMm || chainageFrom || chainageTo);
@@ -212,6 +219,17 @@ export async function POST(req: NextRequest) {
 
 	if (!cracks.length) return ApiError('No valid data rows', 400);
 
-	await prisma.crackIdentification.createMany({ data: cracks });
-	return Success({ imported: cracks.length, errors, processedRows, totalRows: rows.length - 1 });
+	// Replace existing crack data for this project atomically
+	const [deletedResult, createdResult] = await prisma.$transaction([
+		prisma.crackIdentification.deleteMany({ where: { projectId } }),
+		prisma.crackIdentification.createMany({ data: cracks })
+	]);
+
+	return Success({
+		deleted: deletedResult.count,
+		imported: createdResult.count,
+		errors,
+		processedRows,
+		totalRows: rows.length - 1
+	});
 }

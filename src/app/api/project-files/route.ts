@@ -200,16 +200,24 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
 	const auth = await guardApiAccess(req);
 	if (auth.ok === false) return auth.response;
-	let body: unknown;
-	try {
-		body = await req.json();
-	} catch {
-		return Error('Invalid JSON body', 400);
+
+	// Support id via JSON body or query string (?id=) to avoid errors when body is empty
+	let fid: number | null = null;
+	const contentType = req.headers.get('content-type') || '';
+	if (contentType.includes('application/json')) {
+		try {
+			const body = (await req.json()) as Partial<{ id: number | string }>;
+			if (body?.id != null) fid = Number(body.id);
+		} catch {
+			// fall through, will attempt query param
+		}
 	}
-	const { id } = body as Partial<{ id: number | string }>;
-	if (!id) return Error('id required', 400);
-	const fid = Number(id);
-	if (Number.isNaN(fid)) return Error('Invalid id', 400);
+	if (fid == null || Number.isNaN(fid)) {
+		const { searchParams } = new URL(req.url);
+		const qp = searchParams.get('id');
+		if (qp) fid = Number(qp);
+	}
+	if (fid == null || Number.isNaN(fid)) return Error('id required', 400);
 
 	try {
 		// Get filename first for disk cleanup

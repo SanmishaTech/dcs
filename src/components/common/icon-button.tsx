@@ -74,4 +74,17 @@ export function DeleteIconButton(props: Omit<IconButtonProps, 'iconName' | 'tool
   );
 }
 
+// Pre-configured open/view button
+export function OpenIconButton(props: Omit<IconButtonProps, 'iconName' | 'tooltip'> & { tooltip?: string }) {
+  return (
+    <IconButton
+      iconName="ExternalLink"
+      tooltip={props.tooltip || 'Open'}
+      variant={props.variant || 'ghost'}
+      size={props.size || 'sm'}
+      {...props}
+    />
+  );
+}
+
 export default IconButton;

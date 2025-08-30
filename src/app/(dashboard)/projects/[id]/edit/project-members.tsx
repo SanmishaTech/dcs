@@ -7,6 +7,7 @@ import { PERMISSIONS } from '@/config/roles';
 import { QuickAddUserDialog } from './quick-add-user-dialog';
 import { DataTable, Column } from '@/components/common/data-table';
 import { toast } from '@/lib/toast';
+import { DeleteButton } from '@/components/common/delete-button';
 
 interface MemberItem { id: number; userId: number; user: { id: number; name: string | null; email: string; role: string }; }
 
@@ -66,12 +67,15 @@ function MembersTable({ members, loading, canManage, onRemove }: { members: Memb
       simpleStyle
       emptyMessage='No members'
       renderRowActions={canManage ? (m) => (
-        <button
-          type='button'
-          onClick={() => onRemove(m.userId)}
-          className='text-destructive hover:underline text-xs'
-          aria-label={`Remove user ${m.userId}`}
-        >Remove</button>
+        <DeleteButton
+          onDelete={() => onRemove(m.userId)}
+          itemLabel='member'
+          title='Remove member?'
+          description={`This will remove user #${m.userId} from the project (account not deleted). Continue?`}
+          confirmText='Remove'
+          cancelText='Cancel'
+          size='xs'
+        />
       ) : undefined}
       actionsHeader=''
     />

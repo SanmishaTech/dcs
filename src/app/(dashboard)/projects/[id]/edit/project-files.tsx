@@ -12,6 +12,8 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 import { toast } from '@/lib/toast';
 import { DataTable, Column } from '@/components/common/data-table';
+import { DeleteButton } from '@/components/common/delete-button';
+import { OpenIconButton } from '@/components/common/icon-button';
 
 interface ProjectFileItem {
   id: number;
@@ -60,7 +62,6 @@ export function ProjectFiles({ projectId }: { projectId: number }) {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Delete this file?')) return;
     try {
       await apiDelete(`/api/project-files?id=${id}`);
       toast.success('Deleted');
@@ -118,8 +119,20 @@ export function ProjectFiles({ projectId }: { projectId: number }) {
           emptyMessage='No files'
           renderRowActions={row => (
             <div className='flex gap-2'>
-              <a href={`/api/project-files/${row.id}/download`} target='_blank' rel='noopener noreferrer' className='text-xs text-primary hover:underline'>Open</a>
-              {canDelete && <button onClick={() => handleDelete(row.id)} className='text-xs text-destructive hover:underline' type='button'>Delete</button>}
+              <a href={`/api/project-files/${row.id}/download`} target='_blank' rel='noopener noreferrer'>
+                <OpenIconButton size='xs' tooltip='Open File' aria-label='Open File' />
+              </a>
+              {canDelete && (
+                <DeleteButton
+                  onDelete={() => handleDelete(row.id)}
+                  itemLabel='file'
+                  title='Delete file?'
+                  description={`This will permanently remove the file${row.id ? ` #${row.id}` : ''}. This action cannot be undone.`}
+                  confirmText='Delete'
+                  cancelText='Cancel'
+                  size='xs'
+                />
+              )}
             </div>
           )}
           actionsHeader=''
