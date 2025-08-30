@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
+    "build:turbo": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
     "prisma:generate": "prisma generate",
@@ -63,5 +64,8 @@
     "tsx": "^4.19.0",
     "typescript": "^5"
   },
-  "overrides": {}
+  "overrides": {},
+  "engines": {
+    "node": ">=20.16.0 <21"
+  }
 }
