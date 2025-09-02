@@ -8,8 +8,7 @@ const ENV = {
   timezone: process.env.NEXT_PUBLIC_TIMEZONE || 'UTC',
   dateFormat: process.env.NEXT_PUBLIC_DATE_FORMAT || 'yyyy-MM-dd',
   dateTimeFormat: process.env.NEXT_PUBLIC_DATETIME_FORMAT || '', // if blank -> uses Intl fallback
-  currency: process.env.NEXT_PUBLIC_CURRENCY || 'INR',
-  currencyDisplay: process.env.NEXT_PUBLIC_CURRENCY_DISPLAY || 'symbol',
+  currency: process.env.NEXT_PUBLIC_CURRENCY || 'INR'
 };
 
 export function getLocaleConfig() {
