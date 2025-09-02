@@ -91,7 +91,7 @@ export default function DashboardLayout({
 						</div>
 					</header>
 					<main className='flex-1 px-3 py-4 overflow-y-auto backdrop-blur-[1px] min-w-0'>
-						<div className='mx-auto w-full max-w-7xl relative z-10 min-w-0'>
+						<div className='mx-auto w-full relative z-10 min-w-0'>
 							{children}
 						</div>
 					</main>

@@ -1,10 +1,18 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { AppSelect } from "@/components/common/app-select";
 import React from "react";
+import { cn } from "@/lib/utils";
+import { AppSelect } from "@/components/common/app-select";
+import {
+  Pagination as ShadcnPagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export type PaginationProps = {
   page: number;
@@ -64,108 +72,141 @@ export function Pagination({
     : [];
 
   const core = (
-    <nav
-      className={cn("flex items-center gap-2 flex-wrap", !withSummary && className)}
-      aria-label="Pagination navigation"
-    >
-      <Button
-        variant="outline"
-        size={size}
-        disabled={!canPrev}
-        onClick={() => go(page - 1)}
-        aria-label="Previous page"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        {!compact && <span className="ml-1 hidden md:inline">Prev</span>}
-      </Button>
-      {showPageNumbers && pages[0] && pages[0] > 1 && (
-        <Button
-          variant="ghost"
-          size={size}
-          onClick={() => go(1)}
-          disabled={disabled}
-        >1</Button>
-      )}
-      {showPageNumbers && pages[0] && pages[0] > 2 && (
-        <span className="px-1 text-muted-foreground">…</span>
-      )}
-      {showPageNumbers && pages.map(n => (
-        <Button
-          key={n}
-          variant="ghost"
-          size={size}
-          onClick={() => go(n)}
-          disabled={disabled}
-          className={cn(
-            "transition-colors", 
-            n === page
-              ? "bg-primary text-primary-foreground hover:bg-primary focus-visible:ring-2 focus-visible:ring-primary/50 font-medium shadow-sm"
-              : "hover:bg-muted"
-          )}
-          aria-current={n === page ? "page" : undefined}
-        >{n}</Button>
-      ))}
-      {showPageNumbers && pages.at(-1) && pages.at(-1)! < totalPages - 1 && (
-        <span className="px-1 text-muted-foreground">…</span>
-      )}
-      {showPageNumbers && pages.at(-1) && pages.at(-1)! < totalPages && (
-        <Button
-          variant="ghost"
-          size={size}
-          onClick={() => go(totalPages)}
-          disabled={disabled}
-        >{totalPages}</Button>
-      )}
-      <Button
-        variant="outline"
-        size={size}
-        disabled={!canNext}
-        onClick={() => go(page + 1)}
-        aria-label="Next page"
-      >
-        <ChevronRight className="h-4 w-4" />
-        {!compact && <span className="ml-1 hidden md:inline">Next</span>}
-      </Button>
-  {!compact && !withSummary && (
-        <div className="ml-2 hidden sm:block text-xs text-muted-foreground whitespace-nowrap">
-          Page {page} / {totalPages || 1}
-          {typeof total === "number" && perPage ? ` · ${total} items` : ""}
-        </div>
-      )}
-      {onPerPageChange && !compact && (
-        <div className="ml-2 flex items-center gap-1 text-xs">
-          <span className="text-muted-foreground">Rows:</span>
-          <div className="min-w-[70px]">
-            <AppSelect
-              value={String(perPage)}
-              onValueChange={(v) => onPerPageChange(Number(v))}
-              triggerClassName="h-7 w-[70px] px-2 text-xs"
-              disabled={disabled}
+    <ShadcnPagination className={cn(!withSummary && className)}>
+      <PaginationContent>
+        <PaginationItem>
+          { (compact || showPageNumbers || size !== 'default') ? (
+            <PaginationLink
+              href="#"
+              size={size === 'default' ? 'default' : 'icon'}
+              aria-disabled={!canPrev}
+              className={!canPrev ? 'pointer-events-none opacity-50' : ''}
+              onClick={e => { e.preventDefault(); if (canPrev) go(page - 1); }}
             >
-              {perPageOptions.map(opt => (
-                <AppSelect.Item key={opt} value={String(opt)}>{opt}</AppSelect.Item>
-              ))}
-            </AppSelect>
-          </div>
-        </div>
-      )}
-    </nav>
+              <ChevronLeft className="h-4 w-4" />
+            </PaginationLink>
+          ) : (
+            <PaginationPrevious
+              href="#"
+              onClick={e => { e.preventDefault(); if (canPrev) go(page - 1); }}
+              aria-disabled={!canPrev}
+              className={!canPrev ? 'pointer-events-none opacity-50' : ''}
+            />
+          ) }
+        </PaginationItem>
+        {showPageNumbers && pages[0] && pages[0] > 1 && (
+          <PaginationItem>
+            <PaginationLink href="#" size={size === 'default' ? 'default' : 'icon'} onClick={e => { e.preventDefault(); go(1); }}>
+              1
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        {showPageNumbers && pages[0] && pages[0] > 2 && (
+          <PaginationItem><PaginationEllipsis /></PaginationItem>
+        )}
+        {showPageNumbers && pages.map(n => (
+          <PaginationItem key={n}>
+            <PaginationLink
+              href="#"
+              size={size === 'default' ? 'default' : 'icon'}
+              isActive={n === page}
+              onClick={e => { e.preventDefault(); go(n); }}
+            >{n}</PaginationLink>
+          </PaginationItem>
+        ))}
+        {showPageNumbers && pages.at(-1) && pages.at(-1)! < totalPages - 1 && (
+          <PaginationItem><PaginationEllipsis /></PaginationItem>
+        )}
+        {showPageNumbers && pages.at(-1) && pages.at(-1)! < totalPages && (
+          <PaginationItem>
+            <PaginationLink href="#" size={size === 'default' ? 'default' : 'icon'} onClick={e => { e.preventDefault(); go(totalPages); }}>
+              {totalPages}
+            </PaginationLink>
+          </PaginationItem>
+        )}
+        <PaginationItem>
+          { (compact || showPageNumbers || size !== 'default') ? (
+            <PaginationLink
+              href="#"
+              size={size === 'default' ? 'default' : 'icon'}
+              aria-disabled={!canNext}
+              className={!canNext ? 'pointer-events-none opacity-50' : ''}
+              onClick={e => { e.preventDefault(); if (canNext) go(page + 1); }}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </PaginationLink>
+          ) : (
+            <PaginationNext
+              href="#"
+              onClick={e => { e.preventDefault(); if (canNext) go(page + 1); }}
+              aria-disabled={!canNext}
+              className={!canNext ? 'pointer-events-none opacity-50' : ''}
+            />
+          ) }
+        </PaginationItem>
+        {!compact && !withSummary && (
+          <PaginationItem>
+            <div className="ml-2 hidden sm:block text-xs text-muted-foreground whitespace-nowrap">
+              Page {page} / {totalPages || 1}
+              {typeof total === "number" && perPage ? ` · ${total} items` : ""}
+            </div>
+          </PaginationItem>
+        )}
+        {onPerPageChange && !compact && (
+          <PaginationItem>
+            <div className="ml-2 flex items-center gap-1 text-xs">
+              <span className="text-muted-foreground">Rows:</span>
+              <div className="min-w-[70px]">
+                <AppSelect
+                  value={String(perPage)}
+                  onValueChange={(v) => onPerPageChange(Number(v))}
+                  triggerClassName="h-7 w-[70px] px-2 text-xs"
+                  disabled={disabled}
+                >
+                  {perPageOptions.map(opt => (
+                    <AppSelect.Item key={opt} value={String(opt)}>{opt}</AppSelect.Item>
+                  ))}
+                </AppSelect>
+              </div>
+            </div>
+          </PaginationItem>
+        )}
+      </PaginationContent>
+    </ShadcnPagination>
   );
 
-  if (!withSummary) return core;
+  if (!withSummary) return (
+    <div className={cn("flex items-center gap-2", className)}>
+      {core}
+    </div>
+  );
 
   const label = summaryLabel
     ? summaryLabel({ page, totalPages, total, perPage })
-    : (
-      <div className="text-xs text-muted-foreground order-2 sm:order-1">
-        Showing page {page} of {totalPages || 1} {typeof total === 'number' && `· ${total} items`}
-      </div>
-    );
+    : (() => {
+      if (typeof total === 'number' && perPage) {
+        if (total === 0) {
+          return <div className="text-xs text-muted-foreground order-2 sm:order-1 flex-1 min-w-0 truncate">No items</div>;
+        }
+        const startItem = (page - 1) * perPage + 1;
+        const endItem = Math.min(startItem + perPage - 1, total);
+        return (
+          <div className="text-xs text-muted-foreground order-2 sm:order-1 flex-1 min-w-0 truncate">
+            Showing <span className="font-medium">{startItem}</span>–<span className="font-medium">{endItem}</span> of <span className="font-medium">{total}</span> items
+          </div>
+        );
+      }
+      return (
+        <div className="text-xs text-muted-foreground order-2 sm:order-1 flex-1 min-w-0 truncate">
+          Page {page} of {totalPages || 1}
+        </div>
+      );
+    })();
 
   return (
-    <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm", className)}>
+    <div className={cn("flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 text-sm", className)}>
       {label}
-      <div className="order-1 sm:order-2">{core}</div>
+      <div className="order-1 sm:order-2 flex items-center gap-2 flex-shrink-0">{core}</div>
     </div>
   );
 }
