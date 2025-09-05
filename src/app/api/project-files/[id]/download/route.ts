@@ -40,9 +40,11 @@ export async function GET(
 		// New path
 		const diskPath = path.join(
 			process.cwd(),
+			'public',
 			'uploads',
 			'projects',
 			String(fileRec.projectId),
+			'files',
 			fileRec.filename
 		);
 		let stat;

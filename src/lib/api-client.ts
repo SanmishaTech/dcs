@@ -53,8 +53,13 @@ export const apiPut =  <T = unknown, B = unknown>(path: string, body: B, opts?: 
 export const apiPatch =<T = unknown, B = unknown>(path: string, body: B, opts?: ApiClientOptions) => request<T>('PATCH', path, body, opts);
 export const apiDelete = <T = unknown>(path: string, opts?: ApiClientOptions) => request<T>('DELETE', path, undefined, opts);
 
-// Multipart/FormData upload helper (delegates to apiPost; Axios sets headers automatically)
-export const apiUpload = <T = unknown>(path: string, form: FormData, opts?: ApiClientOptions) => request<T>('POST', path, form, opts);
+// Multipart/FormData upload helper.
+// Usage: apiUpload('/api/resource', formData) // POST by default
+//        apiUpload('/api/resource/123', formData, { method: 'PATCH' })
+export const apiUpload = <T = unknown>(path: string, form: FormData, opts?: (ApiClientOptions & { method?: 'POST' | 'PUT' | 'PATCH' })) => {
+  const method = opts?.method || 'POST';
+  return request<T>(method, path, form, opts);
+};
 
 // SWR helpers (return plain data)
 export const swrFetcher = <T = unknown>(path: string) => apiGet<T>(path);

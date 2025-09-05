@@ -105,9 +105,11 @@ export async function POST(req: NextRequest) {
 		// New structured path under /uploads/projects/<projectId>
 		const uploadRoot = path.join(
 			process.cwd(),
+			'public',
 			'uploads',
 			'projects',
-			String(pid)
+			String(pid),
+			'files'
 		);
 		await fs.mkdir(uploadRoot, { recursive: true });
 		const filePath = path.join(uploadRoot, storedFilename);
@@ -233,9 +235,11 @@ export async function DELETE(req: NextRequest) {
 		// Attempt unlink (ignore failure)
 		const uploadRoot = path.join(
 			process.cwd(),
+			'public',
 			'uploads',
 			'projects',
-			String(record.projectId)
+			String(record.projectId),
+			'files'
 		);
 		if (record.filename && record.projectId != null) {
 			const diskPath = path.join(uploadRoot, record.filename);

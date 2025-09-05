@@ -133,6 +133,9 @@ export default function ProjectsPage() {
                 <Link href={`/projects/${p.id}/cracks`} className='mr-1'>
                   <AppButton size='sm' variant='secondary' type='button'>Cracks</AppButton>
                 </Link>
+                <Link href={`/projects/${p.id}/design`} className='mr-1'>
+                  <AppButton size='sm' variant='secondary' type='button'>Design</AppButton>
+                </Link>
                 {can(PERMISSIONS.EDIT_PROJECT) && (
                   <Link href={`/projects/${p.id}/edit`}> <EditButton tooltip='Edit Project' aria-label='Edit Project' /> </Link>
                 )}

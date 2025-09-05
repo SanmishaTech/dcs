@@ -26,6 +26,7 @@ export default function EditProjectPage() {
 					clientName: string;
 					location: string | null;
 					description: string | null;
+					designImage?: string | null;
 				}>(`/api/projects/${id}`);
 				setInitial({
 					id: data.id,
@@ -33,6 +34,7 @@ export default function EditProjectPage() {
 					clientName: data.clientName,
 					location: data.location || '',
 					description: data.description || '',
+					designImage: data.designImage || null,
 				});
 			} catch (e) {
 				toast.error((e as Error).message || 'Failed to load project');

@@ -50,6 +50,7 @@ model Project {
   clientName  String           // Top-level client / organization name
   location    String?          // Optional location string (city / region / address)
   description String?          @db.Text
+  designImage String?          // stored filename or URL of the project design image
   users       ProjectUser[]
   files       ProjectFile[]
   blocks      Block[]
