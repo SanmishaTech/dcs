@@ -12,9 +12,21 @@ import { toast } from '@/lib/toast';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { AppCombobox, type ComboOption } from '@/components/common/app-combobox';
 
 interface ProjectDetail { id: number; name: string; designImage?: string | null; }
-interface Crack { id: number; defectType: string | null; blockId: number; }
+interface Crack {
+  id: number;
+  defectType: string | null;
+  blockId: number;
+  block?: { id: number; name: string } | null;
+  chainageFrom?: string | null;
+  chainageTo?: string | null;
+  rl?: number | null;
+  lengthMm?: number | null;
+  widthMm?: number | null;
+  heightMm?: number | null;
+}
 interface Block { id: number; name: string; projectId: number; }
 interface DesignMapRec { id: number; projectId: number; crackIdentificationId: number; x: number; y: number; width: number; height: number; }
 
@@ -165,6 +177,31 @@ export default function ProjectDesignPage() {
 
   const designMaps = designMapsData?.items || [];
   const cracks = cracksData?.items || [];
+  const formatNum = (v: number | null | undefined) => (v == null ? '' : (Number.isInteger(v) ? String(v) : (v as number).toFixed(2).replace(/\.00$/, '')));
+  const crackOptions: ComboOption[] = (() => {
+    const opts = cracks.map((c) => {
+      const chainage = [c.chainageFrom, c.chainageTo].filter(Boolean).join(' - ');
+      const hasDims = c.lengthMm != null || c.widthMm != null || c.heightMm != null;
+      return {
+        value: c.id,
+        label: (
+          <div className="flex flex-col min-w-0">
+            <div className="text-sm">#{c.id} {c.defectType || '—'}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {chainage ? `Chainage: ${chainage} ` : ''}
+              {c.rl != null ? (chainage ? '| ' : '') + `RL: ${formatNum(c.rl)}` : ''}
+              {hasDims ? `${(chainage || c.rl != null) ? ' | ' : ''}Dim: ${formatNum(c.lengthMm)}×${formatNum(c.widthMm)}×${formatNum(c.heightMm)} mm` : ''}
+            </div>
+          </div>
+        ),
+      } as ComboOption;
+    });
+    // Ensure current crack appears in update mode even if excluded by API
+    if (editDialog?.mode === 'update' && editDialog.crackId && !cracks.find(c => c.id === editDialog.crackId)) {
+      opts.unshift({ value: editDialog.crackId, label: `#${editDialog.crackId} (current)` });
+    }
+    return opts;
+  })();
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
@@ -291,7 +328,7 @@ export default function ProjectDesignPage() {
         return (
           <div
             key={m.id}
-            className="absolute overflow-visible z-30"
+            className="absolute overflow-visible z-30 cursor-pointer"
             style={{ left:x, top:y, width, height, backgroundColor:'rgba(254,240,138,0.35)' }}
             onContextMenu={() => { setMenuTarget({ type: 'map', id: m.id }); }}
           />
@@ -362,7 +399,7 @@ export default function ProjectDesignPage() {
               onConfirm={async () => { if (confirmDeleteId != null) await handleDeleteMap(confirmDeleteId); }}
             />
 
-            <Dialog open={!!editDialog} onOpenChange={(o)=>{ if(!o){ setEditDialog(null); } }}>
+            <Dialog open={!!editDialog} onOpenChange={(o)=>{ if(!o){ if (editDialog?.mode === 'create') cancelPending(); setEditDialog(null); } }}>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{editDialog?.mode === 'update' ? 'Update Map' : 'Create Map'}</DialogTitle>
@@ -387,26 +424,22 @@ export default function ProjectDesignPage() {
                       </select>
                     </div>
                     <div className='flex items-center gap-2'>
-                      <label className='text-sm w-20'>Crack</label>
-                      <select
-                        className='border rounded px-2 py-1 text-sm flex-1'
-                        value={editDialog?.crackId ?? ''}
-                        onChange={(e)=> setEditDialog((d)=> d ? { ...d, crackId: e.target.value ? Number(e.target.value) : '' } : d)}
-                      >
-                        <option value=''>Select Crack</option>
-                        {/* If updating, ensure current crack stays visible even when excludeMapped is active */}
-                        {editDialog?.mode === 'update' && editDialog.crackId && !cracks.find(c=>c.id===editDialog.crackId) && (
-                          <option value={editDialog.crackId}>#{editDialog.crackId} (current)</option>
-                        )}
-                        {cracks.slice(0,200).map(c => (
-                          <option key={c.id} value={c.id}>#{c.id} {c.defectType || '—'}</option>
-                        ))}
-                      </select>
+                      <label className='text-sm w-20 shrink-0'>Crack</label>
+                      <div className='flex-1'>
+                        <AppCombobox
+                          options={crackOptions}
+                          value={editDialog?.crackId ?? null}
+                          onValueChange={(v)=> setEditDialog((d)=> d ? { ...d, crackId: v ? Number(v) : '' } : d)}
+                          placeholder="Select Crack"
+                          searchPlaceholder="Search cracks..."
+                          emptyText="No cracks"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
                 <DialogFooter className='mt-4'>
-                  <Button variant='outline' size='sm' type='button' onClick={()=> setEditDialog(null)}>Cancel</Button>
+                  <Button variant='outline' size='sm' type='button' onClick={()=> { if (editDialog?.mode === 'create') cancelPending(); setEditDialog(null); }}>Cancel</Button>
                   {editDialog?.mode === 'create' ? (
                     <Button size='sm' type='button' onClick={()=> { if (editDialog?.crackId) { setSelectedCrackId(editDialog.crackId); void savePending(); } }}>Save</Button>
                   ) : (
