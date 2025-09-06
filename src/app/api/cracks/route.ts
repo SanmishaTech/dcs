@@ -73,13 +73,16 @@ export async function GET(req: NextRequest) {
 		? Number(searchParams.get('blockId'))
 		: undefined;
 	const defectType = searchParams.get('defectType') || undefined;
+	const excludeMappedParam = searchParams.get('excludeMapped');
+	const excludeMapped = excludeMappedParam === '1' || excludeMappedParam === 'true';
 	const page = Number(searchParams.get('page') || '1');
 	const pageSize = Math.min(100, Number(searchParams.get('pageSize') || '20'));
 	const skip = (page - 1) * pageSize;
 
-	const where: Record<string, unknown> = { projectId };
+		const where: Parameters<typeof prisma.crackIdentification.findMany>[0]['where'] = { projectId };
 	if (blockId) where.blockId = blockId;
 	if (defectType) where.defectType = defectType;
+			if (excludeMapped) where.designMap = null;
 
 	const [items, total] = await Promise.all([
 		prisma.crackIdentification.findMany({
