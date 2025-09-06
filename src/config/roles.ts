@@ -24,6 +24,9 @@ export const PERMISSIONS = {
 	IMPORT_CRACKS: 'IMPORT:CRACKS', // import crack identifications via Excel
 	READ_CRACKS: 'READ:CRACKS',
 	MANAGE_BLOCKS: 'MANAGE:BLOCKS',
+	// Design Maps
+	READ_DESIGN_MAP: 'READ:DESIGN:MAP',
+	WRITE_DESIGN_MAP: 'WRITE:DESIGN:MAP',
 } as const;
 
 export const ROLES = {
@@ -42,6 +45,7 @@ export const ROLES_PERMISSIONS = {
 		PERMISSIONS.READ_PROJECT,
 		PERMISSIONS.READ_PROJECT_FILE,
 		PERMISSIONS.READ_CRACKS,
+		PERMISSIONS.READ_DESIGN_MAP,
 	],
 	// Project (client) user: minimal – only read project + its files (no dashboard access if you prefer; remove if needed)
 	[ROLES.PROJECT_USER]: [
@@ -49,6 +53,7 @@ export const ROLES_PERMISSIONS = {
 		PERMISSIONS.READ_PROJECT,
 		PERMISSIONS.READ_PROJECT_FILE,
 		PERMISSIONS.READ_CRACKS,
+		PERMISSIONS.READ_DESIGN_MAP,
 	],
 } as const;
 

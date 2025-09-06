@@ -42,4 +42,5 @@ next-env.d.ts
 
 # uploaded project assets
 /public/projects
+/public/updloads
 /uploads
