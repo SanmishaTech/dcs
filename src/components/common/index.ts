@@ -2,6 +2,7 @@ export * from './app-button';
 export * from './app-card';
 export * from './app-checkbox';
 export * from './app-select';
+export * from './app-combobox';
 export * from './confirm-dialog';
 export * from './data-table';
 export * from './email-input';
