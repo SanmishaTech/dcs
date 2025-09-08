@@ -15,6 +15,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { AppCombobox, type ComboOption } from '@/components/common/app-combobox';
 import Link from 'next/link';
+import VideoPreviewDialog, { type CrackInfo } from '../edit/video-preview-dialog';
 import { usePermissions } from '@/hooks/use-permissions';
 import { PERMISSIONS } from '@/config/roles';
 
@@ -47,6 +48,10 @@ interface DesignMapRec {
     widthMm: number | null;
     heightMm: number | null;
     block?: { id: number; name: string } | null;
+  // Optional video meta if available on crack record
+  videoFileName?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
   } | null;
 }
 
@@ -195,6 +200,8 @@ export default function ProjectDesignPage() {
   const [menuTarget, setMenuTarget] = useState<{ type: 'map'; id: number } | { type: 'canvas' } | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [editDialog, setEditDialog] = useState<{ mode: 'create' | 'update'; rect: { x:number;y:number;width:number;height:number }; id?: number; crackId: number | '' } | null>(null);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [videoCrack, setVideoCrack] = useState<CrackInfo | null>(null);
 
   const designMaps = designMapsData?.items || [];
   const cracks = cracksData?.items || [];
@@ -361,6 +368,26 @@ export default function ProjectDesignPage() {
                 className="absolute overflow-visible z-30 cursor-pointer"
                 style={{ left:x, top:y, width, height, backgroundColor:'rgba(254,240,138,0.35)' }}
                 onContextMenu={() => { setMenuTarget({ type: 'map', id: m.id }); }}
+                onClick={() => {
+                  const ci = m.crackIdentification;
+                  if (!ci) { setVideoCrack(null); setVideoOpen(true); return; }
+                  const payload: CrackInfo = {
+                    id: ci.id,
+                    blockName: ci.block?.name || null,
+                    chainageFrom: ci.chainageFrom,
+                    chainageTo: ci.chainageTo,
+                    rl: ci.rl,
+                    defectType: ci.defectType,
+                    lengthMm: ci.lengthMm,
+                    widthMm: ci.widthMm,
+                    heightMm: ci.heightMm,
+                    videoFileName: ci.videoFileName,
+                    startTime: ci.startTime,
+                    endTime: ci.endTime,
+                  };
+                  setVideoCrack(payload);
+                  setVideoOpen(true);
+                }}
               />
             </TooltipTrigger>
             <TooltipContent>{tooltip}</TooltipContent>
@@ -516,6 +543,12 @@ export default function ProjectDesignPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            <VideoPreviewDialog
+              open={videoOpen}
+              onOpenChange={(o)=>{ if(!o){ setVideoOpen(false); setVideoCrack(null); } }}
+              projectId={projectId}
+              crack={videoCrack}
+            />
           </div>
         )}
       </AppCard.Content>

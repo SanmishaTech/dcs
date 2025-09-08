@@ -3,6 +3,22 @@ import { prisma } from '@/lib/prisma';
 import { Success, Error as ApiError } from '@/lib/api-response';
 import { guardApiAccess } from '@/lib/access-guard';
 import * as XLSX from 'xlsx';
+// Local select for crack fields used by cracks API
+const CRACK_FOR_DISPLAY_SELECT = {
+	id: true,
+	defectType: true,
+	blockId: true,
+	chainageFrom: true,
+	chainageTo: true,
+	rl: true,
+	lengthMm: true,
+	widthMm: true,
+	heightMm: true,
+	videoFileName: true,
+	startTime: true,
+	endTime: true,
+	block: { select: { id: true, name: true } },
+} as const;
 
 // Expected columns (case-insensitive header matching):
 // Block, DefectType, ChainageFrom, ChainageTo, StartTime, EndTime, WidthMM, LengthMM, Remarks
@@ -89,7 +105,7 @@ export async function GET(req: NextRequest) {
 			where,
 			skip,
 			take: pageSize,
-			include: { block: true },
+			select: CRACK_FOR_DISPLAY_SELECT,
 		}),
 		prisma.crackIdentification.count({ where }),
 	]);
