@@ -24,6 +24,8 @@ export type ComboOption = {
   value: string | number;
   label: React.ReactNode;
   disabled?: boolean;
+  // Optional text used for search; falls back to string label when possible
+  searchText?: string;
 };
 
 type BaseProps = {
@@ -109,10 +111,19 @@ function BaseCombobox(props: BaseProps) {
             disabled={disabled}
             className={cn("w-full justify-between", triggerClassName)}
           >
-            <span className={cn(!selected && "text-muted-foreground")}>
-              {selected ? (renderDisplay ? renderDisplay(selected) : selected.label) : placeholder}
+            <span className={cn("flex-1 min-w-0 text-left truncate", !selected && "text-muted-foreground")}> 
+              {selected
+                ? (renderDisplay
+                    ? renderDisplay(selected)
+                    : (
+                      <span className="block truncate">
+                        {typeof selected.label === 'string' ? selected.label : (selected /* as any */).searchText ?? selected.label}
+                      </span>
+                    )
+                  )
+                : placeholder}
             </span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 shrink-0">
               {allowClear && selected && !disabled ? (
                 <X
                   className="size-4 text-muted-foreground hover:text-foreground"

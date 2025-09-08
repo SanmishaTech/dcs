@@ -13,7 +13,26 @@ export async function GET(req: NextRequest) {
   const where: { projectId: number; crackIdentificationId?: number } = { projectId };
   if (crackIdentificationId) where.crackIdentificationId = crackIdentificationId;
   try {
-    const maps = await prisma.designMap.findMany({ where, orderBy: { id: 'asc' } });
+    const maps = await prisma.designMap.findMany({
+      where,
+      orderBy: { id: 'asc' },
+      include: {
+        crackIdentification: {
+          select: {
+            id: true,
+            defectType: true,
+            blockId: true,
+            chainageFrom: true,
+            chainageTo: true,
+            rl: true,
+            lengthMm: true,
+            widthMm: true,
+            heightMm: true,
+            block: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
     return Success({ items: maps });
   } catch { return Error('Failed to fetch design maps'); }
 }

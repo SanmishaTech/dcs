@@ -11,8 +11,12 @@ import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } 
 import { toast } from '@/lib/toast';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { AppCombobox, type ComboOption } from '@/components/common/app-combobox';
+import Link from 'next/link';
+import { usePermissions } from '@/hooks/use-permissions';
+import { PERMISSIONS } from '@/config/roles';
 
 interface ProjectDetail { id: number; name: string; designImage?: string | null; }
 interface Crack {
@@ -28,7 +32,23 @@ interface Crack {
   heightMm?: number | null;
 }
 interface Block { id: number; name: string; projectId: number; }
-interface DesignMapRec { id: number; projectId: number; crackIdentificationId: number; x: number; y: number; width: number; height: number; }
+interface DesignMapRec {
+  id: number;
+  projectId: number;
+  crackIdentificationId: number;
+  x: number; y: number; width: number; height: number;
+  crackIdentification?: {
+    id: number;
+    defectType: string | null;
+    chainageFrom: string | null;
+    chainageTo: string | null;
+    rl: number | null;
+    lengthMm: number | null;
+    widthMm: number | null;
+    heightMm: number | null;
+    block?: { id: number; name: string } | null;
+  } | null;
+}
 
 const WIDE_ASPECT_THRESHOLD = 4; // if image wider than 4:1, prefer height-based fit
 
@@ -149,6 +169,7 @@ function DesignImageView({
 export default function ProjectDesignPage() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
+  const { can } = usePermissions();
   const { data, error, isLoading } = useSWR<ProjectDetail>(projectId ? `/api/projects/${projectId}` : null, apiGet);
   const [blockFilter, setBlockFilter] = useState<number | 'all'>('all');
   const { data: blocks } = useSWR<Block[]>(projectId ? `/api/blocks?projectId=${projectId}` : null, apiGet);
@@ -182,23 +203,24 @@ export default function ProjectDesignPage() {
     const opts = cracks.map((c) => {
       const chainage = [c.chainageFrom, c.chainageTo].filter(Boolean).join(' - ');
       const hasDims = c.lengthMm != null || c.widthMm != null || c.heightMm != null;
+      const dims = hasDims ? `${formatNum(c.lengthMm)}×${formatNum(c.widthMm)}×${formatNum(c.heightMm)} mm` : '';
+      const parts = [
+        chainage ? `Ch: ${chainage}` : null,
+        c.rl != null ? `RL: ${formatNum(c.rl)}` : null,
+        c.defectType || null,
+        dims || null,
+      ].filter(Boolean) as string[];
+      const line = `#${c.id} ${parts.join(' | ')}`;
       return {
         value: c.id,
-        label: (
-          <div className="flex flex-col min-w-0">
-            <div className="text-sm">#{c.id} {c.defectType || '—'}</div>
-            <div className="text-xs text-muted-foreground truncate">
-              {chainage ? `Chainage: ${chainage} ` : ''}
-              {c.rl != null ? (chainage ? '| ' : '') + `RL: ${formatNum(c.rl)}` : ''}
-              {hasDims ? `${(chainage || c.rl != null) ? ' | ' : ''}Dim: ${formatNum(c.lengthMm)}×${formatNum(c.widthMm)}×${formatNum(c.heightMm)} mm` : ''}
-            </div>
-          </div>
-        ),
+        label: <div className="truncate text-sm">{line}</div>,
+        searchText: line,
       } as ComboOption;
     });
     // Ensure current crack appears in update mode even if excluded by API
     if (editDialog?.mode === 'update' && editDialog.crackId && !cracks.find(c => c.id === editDialog.crackId)) {
-      opts.unshift({ value: editDialog.crackId, label: `#${editDialog.crackId} (current)` });
+      const line = `#${editDialog.crackId} (current)`;
+      opts.unshift({ value: editDialog.crackId, label: <div className="truncate text-sm">{line}</div>, searchText: line });
     }
     return opts;
   })();
@@ -325,13 +347,24 @@ export default function ProjectDesignPage() {
             x = x / factor; y = y / factor; width = width / factor; height = height / factor;
         }
         if (width <= 0 || height <= 0) return null;
+  const ci = m.crackIdentification;
+  const chainage = ci ? [ci.chainageFrom, ci.chainageTo].filter(Boolean).join(' - ') : '';
+  const dims = ci ? [ci.lengthMm, ci.widthMm, ci.heightMm].map(v => v == null ? '' : (Number.isInteger(v) ? String(v) : (v as number).toFixed(2).replace(/\.00$/, ''))).join('×') : '';
+  const rl = ci?.rl != null ? String(ci.rl) : '';
+  const defect = ci?.defectType || '';
+  const blockName = ci?.block?.name || '';
+  const tooltip = `${defect ? defect : ''}${blockName ? (defect ? ' | ' : '') + 'Block: ' + blockName : ''}${chainage ? ((defect || blockName) ? ' | ' : '') + 'Ch: ' + chainage : ''}${rl ? ' | RL: ' + rl : ''}${dims.trim() ? ' | Dim: ' + dims + ' mm' : ''}` || `#${m.id}`;
         return (
-          <div
-            key={m.id}
-            className="absolute overflow-visible z-30 cursor-pointer"
-            style={{ left:x, top:y, width, height, backgroundColor:'rgba(254,240,138,0.35)' }}
-            onContextMenu={() => { setMenuTarget({ type: 'map', id: m.id }); }}
-          />
+          <Tooltip key={m.id}>
+            <TooltipTrigger asChild>
+              <div
+                className="absolute overflow-visible z-30 cursor-pointer"
+                style={{ left:x, top:y, width, height, backgroundColor:'rgba(254,240,138,0.35)' }}
+                onContextMenu={() => { setMenuTarget({ type: 'map', id: m.id }); }}
+              />
+            </TooltipTrigger>
+            <TooltipContent>{tooltip}</TooltipContent>
+          </Tooltip>
         );
       })}
       {/* Draft rectangle while dragging */}
@@ -363,12 +396,26 @@ export default function ProjectDesignPage() {
 
   if (!projectId) return <div className='p-6'>Invalid project id</div>;
   if (error) return <div className='p-6 text-destructive'>Failed to load project</div>;
+  // Admin-only access: require WRITE_DESIGN_MAP permission (granted only to ADMIN in roles mapping)
+  if (!isLoading && !can(PERMISSIONS.WRITE_DESIGN_MAP)) {
+    // Optional: redirect away; fall back to a simple forbidden message
+    // router.replace(`/projects/${projectId}/cracks`);
+    return <div className='p-6 text-destructive'>Access restricted. Admins only.</div>;
+  }
 
   return (
     <AppCard className='mt-4'>
       <AppCard.Header>
         <AppCard.Title>Design - {data?.name || '...'}</AppCard.Title>
         <AppCard.Description>Zoom & pan the project design image.</AppCard.Description>
+        <AppCard.Action>
+          <Link
+            href={`/projects/${projectId}/cracks`}
+            className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+          >
+            Go to Cracks
+          </Link>
+        </AppCard.Action>
       </AppCard.Header>
       <AppCard.Content className='space-y-3'>
         {isLoading && <div className='text-sm text-muted-foreground'>Loading...</div>}
@@ -405,23 +452,19 @@ export default function ProjectDesignPage() {
                   <DialogTitle>{editDialog?.mode === 'update' ? 'Update Map' : 'Create Map'}</DialogTitle>
                 </DialogHeader>
                 <div className='space-y-3'>
-                  <div className='grid grid-cols-2 gap-2 text-xs'>
-                    <div>Pos: {editDialog?.rect.x.toFixed(1)}, {editDialog?.rect.y.toFixed(1)}</div>
-                    <div>Size: {editDialog?.rect.width.toFixed(1)} × {editDialog?.rect.height.toFixed(1)}</div>
-                  </div>
-                  <div className='grid grid-cols-1 md:grid-cols-2 gap-3 items-center'>
+                  <div className='flex flex-col gap-3'>
                     <div className='flex items-center gap-2'>
-                      <label className='text-sm w-20'>Block</label>
-                      <select
-                        className='border rounded px-2 py-1 text-sm'
-                        value={blockFilter}
-                        onChange={(e)=> setBlockFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                      >
-                        <option value='all'>All</option>
-                        {(blocks||[]).map(b => (
-                          <option key={b.id} value={b.id}>{b.name}</option>
-                        ))}
-                      </select>
+                      <label className='text-sm w-20 shrink-0'>Block</label>
+                      <div className='flex-1'>
+                        <AppCombobox
+                          options={[{ value: 'all', label: <div className='truncate text-sm'>All</div>, searchText: 'All' }, ...(blocks||[]).map(b=>({ value: b.id, label: <div className='truncate text-sm'>{b.name}</div>, searchText: b.name }))]}
+                          value={blockFilter}
+                          onValueChange={(v)=> setBlockFilter((v===null || v==='all') ? 'all' : Number(v))}
+                          placeholder="All Blocks"
+                          searchPlaceholder="Search blocks..."
+                          emptyText="No blocks"
+                        />
+                      </div>
                     </div>
                     <div className='flex items-center gap-2'>
                       <label className='text-sm w-20 shrink-0'>Crack</label>
