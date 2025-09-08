@@ -102,7 +102,7 @@ export function ProjectUserDashboard() {
 						<AppCard.Action>
 							<AppButton
 								size='sm'
-								onClick={() => router.push(`/projects/${project.id}/cracks`)}
+								onClick={() => router.push(`/projects/${project.id}/design`)}
 							>
 								View Details
 							</AppButton>

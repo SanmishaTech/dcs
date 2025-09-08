@@ -175,6 +175,7 @@ export default function ProjectDesignPage() {
   const { id } = useParams<{ id: string }>();
   const projectId = Number(id);
   const { can } = usePermissions();
+  const canWrite = can(PERMISSIONS.WRITE_DESIGN_MAP);
   const { data, error, isLoading } = useSWR<ProjectDetail>(projectId ? `/api/projects/${projectId}` : null, apiGet);
   const [blockFilter, setBlockFilter] = useState<number | 'all'>('all');
   const { data: blocks } = useSWR<Block[]>(projectId ? `/api/blocks?projectId=${projectId}` : null, apiGet);
@@ -333,16 +334,17 @@ export default function ProjectDesignPage() {
   }, [drawing, pendingRect]);
 
   const overlay = natural && (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          className="absolute top-0 left-0"
-          style={{ width: natural.w, height: natural.h }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onContextMenuCapture={() => setMenuTarget({ type: 'canvas' })}
-        >
+    canWrite ? (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            className="absolute top-0 left-0"
+            style={{ width: natural.w, height: natural.h }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onContextMenuCapture={() => setMenuTarget({ type: 'canvas' })}
+          >
       {/* Existing maps (single consistent color) */}
       {designMaps.map(m => {
         // Adaptive fallback: if any stored dimension exceeds natural bounds by >1.5x, treat as legacy scaled coords and compress.
@@ -401,33 +403,105 @@ export default function ProjectDesignPage() {
           style={{ left:draftRect.x, top:draftRect.y, width:draftRect.width, height:draftRect.height, backgroundColor:'rgba(254,240,138,0.45)' }}
         />
       )}
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        {menuTarget?.type === 'map' ? (
-          <>
-            <ContextMenuItem onSelect={() => { if (menuTarget?.type==='map') openUpdateDialog(menuTarget.id); setMenuTarget(null); }}>Edit Map</ContextMenuItem>
-            <ContextMenuItem
-              variant="destructive"
-              onSelect={() => { setConfirmDeleteId(menuTarget.id); setMenuTarget(null); }}
-            >
-              Delete Map
-            </ContextMenuItem>
-          </>
-        ) : (
-          <ContextMenuItem onSelect={() => { cancelPending(); setDrawing(true); setMenuTarget(null); }}>New Map</ContextMenuItem>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          {menuTarget?.type === 'map' ? (
+            canWrite ? (
+              <>
+                <ContextMenuItem onSelect={() => { if (menuTarget?.type==='map') openUpdateDialog(menuTarget.id); setMenuTarget(null); }}>Edit Map</ContextMenuItem>
+                <ContextMenuItem
+                  variant="destructive"
+                  onSelect={() => { setConfirmDeleteId(menuTarget.id); setMenuTarget(null); }}
+                >
+                  Delete Map
+                </ContextMenuItem>
+              </>
+            ) : null
+          ) : (
+            canWrite ? (
+              <ContextMenuItem onSelect={() => { cancelPending(); setDrawing(true); setMenuTarget(null); }}>New Map</ContextMenuItem>
+            ) : null
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+    ) : (
+      // No write permission: render overlay without context menu and block right-click
+      <div
+        className="absolute top-0 left-0"
+        style={{ width: natural.w, height: natural.h }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onContextMenu={(e) => { e.preventDefault(); }}
+      >
+        {/* Existing maps (single consistent color) */}
+        {designMaps.map(m => {
+          // Adaptive fallback: if any stored dimension exceeds natural bounds by >1.5x, treat as legacy scaled coords and compress.
+          let { x, y, width, height } = m;
+          const overScale = Math.max(width / natural.w, height / natural.h, x / natural.w, y / natural.h);
+          if (overScale > 1.5) {
+            // heuristic: divide by round(overScale) to bring into view (limit 50 to avoid extremes)
+              const factor = Math.min(50, Math.round(overScale));
+              x = x / factor; y = y / factor; width = width / factor; height = height / factor;
+          }
+          if (width <= 0 || height <= 0) return null;
+          const ci = m.crackIdentification;
+          const chainage = ci ? [ci.chainageFrom, ci.chainageTo].filter(Boolean).join(' - ') : '';
+          const dims = ci ? [ci.lengthMm, ci.widthMm, ci.heightMm].map(v => v == null ? '' : (Number.isInteger(v) ? String(v) : (v as number).toFixed(2).replace(/\.00$/, ''))).join('×') : '';
+          const rl = ci?.rl != null ? String(ci.rl) : '';
+          const defect = ci?.defectType || '';
+          const blockName = ci?.block?.name || '';
+          const tooltip = `${defect ? defect : ''}${blockName ? (defect ? ' | ' : '') + 'Block: ' + blockName : ''}${chainage ? ((defect || blockName) ? ' | ' : '') + 'Ch: ' + chainage : ''}${rl ? ' | RL: ' + rl : ''}${dims.trim() ? ' | Dim: ' + dims + ' mm' : ''}` || `#${m.id}`;
+          return (
+            <Tooltip key={m.id}>
+              <TooltipTrigger asChild>
+                <div
+                  className="absolute overflow-visible z-30 cursor-pointer"
+                  style={{ left:x, top:y, width, height, backgroundColor:'rgba(254,240,138,0.35)' }}
+                  onContextMenu={(e) => { e.preventDefault(); }}
+                  onClick={() => {
+                    const ci = m.crackIdentification;
+                    if (!ci) { setVideoCrack(null); setVideoOpen(true); return; }
+                    const payload: CrackInfo = {
+                      id: ci.id,
+                      blockName: ci.block?.name || null,
+                      chainageFrom: ci.chainageFrom,
+                      chainageTo: ci.chainageTo,
+                      rl: ci.rl,
+                      defectType: ci.defectType,
+                      lengthMm: ci.lengthMm,
+                      widthMm: ci.widthMm,
+                      heightMm: ci.heightMm,
+                      videoFileName: ci.videoFileName,
+                      startTime: ci.startTime,
+                      endTime: ci.endTime,
+                    };
+                    setVideoCrack(payload);
+                    setVideoOpen(true);
+                  }}
+                />
+              </TooltipTrigger>
+              <TooltipContent>{tooltip}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+        {/* Draft rectangle while dragging */}
+        {draftRect && (
+          <div
+            className="absolute"
+            style={{ left:draftRect.x, top:draftRect.y, width:draftRect.width, height:draftRect.height, backgroundColor:'rgba(254,240,138,0.45)' }}
+          />
         )}
-      </ContextMenuContent>
-    </ContextMenu>
+      </div>
+    )
   );
 
   if (!projectId) return <div className='p-6'>Invalid project id</div>;
   if (error) return <div className='p-6 text-destructive'>Failed to load project</div>;
-  // Admin-only access: require WRITE_DESIGN_MAP permission (granted only to ADMIN in roles mapping)
-  if (!isLoading && !can(PERMISSIONS.WRITE_DESIGN_MAP)) {
-    // Optional: redirect away; fall back to a simple forbidden message
-    // router.replace(`/projects/${projectId}/cracks`);
-    return <div className='p-6 text-destructive'>Access restricted. Admins only.</div>;
+  // View access: allow users with READ_DESIGN_MAP (project users can view); editing requires WRITE_DESIGN_MAP
+  if (!isLoading && !can(PERMISSIONS.READ_DESIGN_MAP)) {
+    return <div className='p-6 text-destructive'>Access restricted.</div>;
   }
 
   return (
@@ -464,6 +538,17 @@ export default function ProjectDesignPage() {
             {/* Editing UI removed */}
             <p className='text-xs text-muted-foreground'>Use mouse wheel (Ctrl + wheel for browser zoom avoided) or buttons to zoom. Pan by dragging.</p>
             <p className='text-xs text-muted-foreground'>Shortcuts: + / = zoom in, - zoom out, 0 reset, f fit.</p>
+            {canWrite && (
+              <div className='mt-1 text-xs text-muted-foreground'>
+                <div className='font-medium text-foreground'>Add / update maps</div>
+                <ul className='list-disc pl-5 space-y-1'>
+                  <li>Right-click on the image and choose “New Map”, then drag to draw a rectangle.</li>
+                  <li>Select a crack in the dialog and click Save to create the map.</li>
+                  <li>Right-click an existing map to Edit or Delete it.</li>
+                  <li>Press ESC to cancel drawing.</li>
+                </ul>
+              </div>
+            )}
             <ConfirmDialog
               open={confirmDeleteId != null}
               onOpenChange={(o) => { if (!o) setConfirmDeleteId(null); }}
