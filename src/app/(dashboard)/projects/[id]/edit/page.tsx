@@ -9,6 +9,9 @@ import ProjectForm, {
 } from '@/app/(dashboard)/projects/project-form';
 import { ProjectMembers } from './project-members';
 import { ProjectFiles } from './project-files';
+import { ProjectVideos } from './project-videos';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AppCard } from '@/components/common/app-card';
 
 export default function EditProjectPage() {
 	const { id } = useParams<{ id: string }>();
@@ -52,8 +55,33 @@ export default function EditProjectPage() {
 	return (
 		<div>
 			<ProjectForm mode='edit' initial={initial} />
-			{initial?.id ? <ProjectMembers projectId={initial.id} /> : null}
-			{initial?.id ? <ProjectFiles projectId={initial.id} /> : null}
+			{initial?.id ? (
+				<div className='mt-6'>
+					<Tabs defaultValue='members'>
+						<AppCard>
+							<AppCard.Header className='flex flex-wrap items-center justify-between gap-2'>
+								<AppCard.Title className='text-base'>Project data</AppCard.Title>
+								<TabsList>
+									<TabsTrigger value='members'>Members</TabsTrigger>
+									<TabsTrigger value='files'>Files</TabsTrigger>
+									<TabsTrigger value='videos'>Videos</TabsTrigger>
+								</TabsList>
+							</AppCard.Header>
+							<AppCard.Content>
+								<TabsContent value='members'>
+									<ProjectMembers projectId={initial.id} embedded />
+								</TabsContent>
+								<TabsContent value='files'>
+									<ProjectFiles projectId={initial.id} embedded />
+								</TabsContent>
+								<TabsContent value='videos'>
+									<ProjectVideos projectId={initial.id} embedded />
+								</TabsContent>
+							</AppCard.Content>
+						</AppCard>
+					</Tabs>
+				</div>
+			) : null}
 		</div>
 	);
 }

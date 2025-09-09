@@ -11,7 +11,7 @@ import { TextInput } from '@/components/common/text-input';
 import { AppButton } from '@/components/common/app-button';
 import { UploadInput } from '@/components/common/upload-input';
 import { FormSection, FormRow } from '@/components/common/app-form';
-import { apiPost, apiPatch, apiUpload } from '@/lib/api-client';
+import { apiPost, apiPatch } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
 
@@ -72,19 +72,38 @@ export default function ProjectForm({
 		},
 	});
 	const { control, handleSubmit, watch } = form;
-	const [preview, setPreview] = useState<string | null>(
-		initial?.designImage && initial?.id
-			? `/uploads/projects/${initial.id}/designs/${initial.designImage}`
-			: null
-	);
+	const [preview, setPreview] = useState<string | null>(null);
 	const fileObj = watch('designImageFile') as File | null;
 
 	useEffect(() => {
-		if (initial?.designImage && initial?.id) {
-			setPreview(
-				`/uploads/projects/${initial.id}/designs/${initial.designImage}`
-			);
-		}
+		(async () => {
+			if (initial?.designImage) {
+				// If looks like S3 key (starts with projects/), presign GET; else treat as legacy local path
+				if (initial.designImage.startsWith('projects/')) {
+					try {
+						const res = await fetch('/api/uploads/presign-get', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ key: initial.designImage }),
+						});
+						if (res.ok) {
+							const data = await res.json();
+							setPreview(data.url);
+							return;
+						}
+					} catch {
+						// fallback to no preview
+					}
+					setPreview(null);
+				} else if (initial?.id) {
+					setPreview(
+						`/uploads/projects/${initial.id}/designs/${initial.designImage}`
+					);
+				}
+			} else {
+				setPreview(null);
+			}
+		})();
 	}, [initial?.designImage, initial?.id]);
 
 	async function onSubmit(values: z.infer<typeof schema>) {
@@ -93,28 +112,67 @@ export default function ProjectForm({
 			// For now, store filename only; separate upload endpoint could be added.
 			let designImage: string | null = initial?.designImage || null;
 			if (fileObj) {
-				// Build multipart for either create or update
-				const fd = new FormData();
-				fd.append('name', values.name);
-				fd.append('clientName', values.clientName);
-				if (values.location) fd.append('location', values.location);
-				if (values.description) fd.append('description', values.description);
-				fd.append('designImageFile', fileObj);
+				// S3 presigned upload flow
 				if (isCreate) {
-					const res = await apiUpload<ProjectResponse>(
-						'/api/projects?withDesignImage=1',
-						fd
+					// Create project first (no image) to get ID
+					const created = await apiPost<ProjectResponse>('/api/projects', {
+						name: values.name,
+						clientName: values.clientName,
+						location: values.location || null,
+						description: values.description || null,
+						designImage: null,
+					});
+					const presign = await fetch('/api/uploads/presign', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							projectId: created.id,
+							folder: 'designs',
+							fileName: fileObj.name,
+							contentType: fileObj.type || 'application/octet-stream',
+						}),
+					}).then((r) => r.json());
+					await fetch(presign.url, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': fileObj.type || 'application/octet-stream',
+						},
+						body: fileObj,
+					});
+					const res = await apiPatch<ProjectResponse>(
+						`/api/projects/${created.id}`,
+						{
+							designImage: presign.key,
+						}
 					);
-					designImage = res.designImage ?? designImage;
+					designImage = res.designImage ?? presign.key;
 					toast.success('Project created');
 					onSuccess?.(res);
 				} else if (initial?.id) {
-					const res = await apiUpload<ProjectResponse>(
-						`/api/projects/${initial.id}?withDesignImage=1`,
-						fd,
-						{ method: 'PATCH' }
+					const presign = await fetch('/api/uploads/presign', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							projectId: initial.id,
+							folder: 'designs',
+							fileName: fileObj.name,
+							contentType: fileObj.type || 'application/octet-stream',
+						}),
+					}).then((r) => r.json());
+					await fetch(presign.url, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': fileObj.type || 'application/octet-stream',
+						},
+						body: fileObj,
+					});
+					const res = await apiPatch<ProjectResponse>(
+						`/api/projects/${initial.id}`,
+						{
+							designImage: presign.key,
+						}
 					);
-					designImage = res.designImage ?? designImage;
+					designImage = res.designImage ?? presign.key;
 					toast.success('Project updated');
 					onSuccess?.(res);
 				}
@@ -210,18 +268,45 @@ export default function ProjectForm({
 											description='Optional project design image (max 20MB).'
 											accept='image/*'
 											maxSizeBytes={20 * 1024 * 1024}
-											onFileChange={(f) => {
+											onFileChange={async (f) => {
 												if (f) {
+													// Immediate local preview via data URL
 													const reader = new FileReader();
 													reader.onload = () =>
 														setPreview(reader.result as string);
 													reader.readAsDataURL(f);
 												} else {
-													setPreview(
-														initial?.designImage && initial?.id
-															? `/uploads/projects/${initial.id}/designs/${initial.designImage}`
-														: null
-													);
+													// Recompute preview from initial data
+													if (initial?.designImage) {
+														if (initial.designImage.startsWith('projects/')) {
+															try {
+																const res = await fetch(
+																	'/api/uploads/presign-get',
+																	{
+																		method: 'POST',
+																		headers: {
+																			'Content-Type': 'application/json',
+																		},
+																		body: JSON.stringify({
+																			key: initial.designImage,
+																		}),
+																	}
+																);
+																if (res.ok) {
+																	const data = await res.json();
+																	setPreview(data.url);
+																	return;
+																}
+															} catch {}
+															setPreview(null);
+														} else if (initial?.id) {
+															setPreview(
+																`/uploads/projects/${initial.id}/designs/${initial.designImage}`
+															);
+														}
+													} else {
+														setPreview(null);
+													}
 												}
 											}}
 											allowClear
@@ -232,6 +317,7 @@ export default function ProjectForm({
 													src={preview}
 													alt='Design preview'
 													fill
+													unoptimized
 													className='object-contain rounded border'
 												/>
 											</div>

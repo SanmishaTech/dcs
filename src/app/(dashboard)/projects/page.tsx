@@ -16,6 +16,7 @@ import { PERMISSIONS } from '@/config/roles';
 import Link from 'next/link';
 import { EditButton } from '@/components/common/icon-button';
 import { DeleteButton } from '@/components/common/delete-button';
+import { formatBytes } from '@/lib/utils';
 
 interface ProjectListItem {
   id: number;
@@ -26,6 +27,7 @@ interface ProjectListItem {
   createdAt: string;
   updatedAt: string;
   _count: { users: number; files: number };
+  _storageBytes?: number;
 }
 
 interface ProjectsResponse {
@@ -77,6 +79,7 @@ export default function ProjectsPage() {
     { key: 'location', header: 'Location', sortable: true, accessor: r => r.location || '—', cellClassName: 'whitespace-nowrap' },
     { key: '_count.users', header: 'Users', accessor: r => r._count.users, className: 'text-right', cellClassName: 'text-right tabular-nums', sortable: false },
     { key: '_count.files', header: 'Files', accessor: r => r._count.files, className: 'text-right', cellClassName: 'text-right tabular-nums', sortable: false },
+  { key: '_storageBytes', header: 'Storage', accessor: r => formatBytes(r._storageBytes || 0), className: 'text-right', cellClassName: 'text-right whitespace-nowrap', sortable: false },
     { key: 'createdAt', header: 'Created', sortable: true, accessor: r => new Date(r.createdAt).toLocaleDateString(), className: 'whitespace-nowrap', cellClassName: 'text-muted-foreground whitespace-nowrap' },
   ];
 

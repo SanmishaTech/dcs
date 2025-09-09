@@ -65,6 +65,14 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
     },
   },
   {
+    prefix: '/api/project-videos',
+    methods: {
+      GET: [PERMISSIONS.READ_PROJECT_FILE],
+      POST: [PERMISSIONS.UPLOAD_PROJECT_FILE],
+      DELETE: [PERMISSIONS.DELETE_PROJECT_FILE],
+    },
+  },
+  {
     prefix: '/api/blocks',
     methods: {
       GET: [PERMISSIONS.READ_CRACKS],

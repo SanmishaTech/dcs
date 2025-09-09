@@ -1,5 +1,5 @@
 "use client";
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export interface CrackInfo {
@@ -51,6 +51,28 @@ export function VideoPreviewDialog({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const startSecs = parseStartTime(crack?.startTime || null);
   const endSecs = parseStartTime(crack?.endTime || null);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+
+  // Resolve the video source: query S3-backed ProjectVideo by originalName; no legacy fallback
+  useEffect(() => {
+    let cancelled = false;
+    async function resolveSrc() {
+      const fileName = crack?.videoFileName?.trim();
+      if (!open || !fileName) { if (!cancelled) setVideoSrc(null); return; }
+      try {
+        const list = await fetch(`/api/project-videos?projectId=${projectId}`, { credentials: 'include' });
+        if (list.ok) {
+          const videos: Array<{ id: number; originalName: string }> = await list.json();
+          const target = fileName.toLowerCase();
+          const match = videos.find(v => (v.originalName || '').trim().toLowerCase() === target);
+          if (match) { if (!cancelled) { setVideoSrc(`/api/project-videos/${match.id}/download`); return; } }
+        }
+      } catch { /* ignore */ }
+      if (!cancelled) setVideoSrc(null);
+    }
+    void resolveSrc();
+    return () => { cancelled = true; };
+  }, [open, projectId, crack?.videoFileName]);
 
   const dims = [fmtNum(crack?.lengthMm ?? null), fmtNum(crack?.widthMm ?? null), fmtNum(crack?.heightMm ?? null)]
     .filter(Boolean)
@@ -95,7 +117,9 @@ export function VideoPreviewDialog({
                 }
               }}
             >
-              <source src={`/projects/${projectId}/videos/${encodeURIComponent(crack.videoFileName)}`} />
+              {videoSrc ? (
+                <source src={videoSrc} />
+              ) : null}
               Your browser does not support the video tag.
             </video>
             <div className="text-xs text-muted-foreground flex gap-4 flex-wrap">

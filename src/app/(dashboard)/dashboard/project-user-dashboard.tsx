@@ -27,7 +27,6 @@ interface ProjectFile {
 	id: number;
 	originalName: string;
 	title: string;
-	filename: string;
 	mimeType: string;
 	size: number;
 	createdAt: string;

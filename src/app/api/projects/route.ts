@@ -60,6 +60,37 @@ export async function GET(req: NextRequest) {
       _count: { select: { users: true, files: true } },
     },
   });
+  // Augment with storage usage (sum of ProjectFile.size + ProjectVideo.size per project for the current page)
+  try {
+    const ids = (result.data as Array<{ id: number }>).map(p => p.id);
+    if (ids.length > 0) {
+      // Files storage
+      const filesGrouped = await prisma.projectFile.groupBy({
+        by: ['projectId'],
+        where: { projectId: { in: ids } },
+        _sum: { size: true },
+      });
+      const sizeByProject = new Map<number, number>(filesGrouped.map(g => [g.projectId, Number(g._sum.size || 0)]));
+      // Videos storage (S3-backed)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const videosGrouped = await (prisma as any).projectVideo.groupBy({
+        by: ['projectId'],
+        where: { projectId: { in: ids } },
+        _sum: { size: true },
+      });
+      for (const g of videosGrouped as Array<{ projectId: number; _sum: { size: number | null } }>) {
+        const prev = sizeByProject.get(g.projectId) || 0;
+        sizeByProject.set(g.projectId, prev + Number(g._sum.size || 0));
+      }
+      const dataWithStorage = (result.data as Array<Record<string, unknown>>).map(p => ({
+        ...p,
+        _storageBytes: sizeByProject.get(p.id as number) || 0,
+      }));
+      return Success({ ...result, data: dataWithStorage });
+    }
+  } catch {
+    // If aggregation fails for any reason, fall back silently to original result
+  }
   return Success(result);
 }
 

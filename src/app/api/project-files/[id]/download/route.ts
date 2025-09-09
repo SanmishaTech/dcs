@@ -2,8 +2,9 @@ import { NextRequest } from 'next/server';
 import { guardApiAccess } from '@/lib/access-guard';
 import { prisma } from '@/lib/prisma';
 import { Error } from '@/lib/api-response';
-import path from 'path';
-import { promises as fs } from 'fs';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { s3 } from '@/lib/s3';
 
 // GET /api/project-files/:id/download  -> returns binary file with auth/membership checks
 export async function GET(
@@ -18,7 +19,7 @@ export async function GET(
 	if (Number.isNaN(fid)) return Error('Invalid id', 400);
 
 	try {
-		const fileRec = await prisma.projectFile.findUnique({
+	const fileRec = await prisma.projectFile.findUnique({
 			where: { id: fid },
 			select: {
 				id: true,
@@ -27,6 +28,7 @@ export async function GET(
 				originalName: true,
 				mimeType: true,
 				size: true,
+		storageKey: true,
 			},
 		});
 		if (!fileRec) return Error('File not found', 404);
@@ -37,44 +39,17 @@ export async function GET(
 			});
 			if (!membership) return Error('Forbidden', 403);
 		}
-		// New path
-		const diskPath = path.join(
-			process.cwd(),
-			'public',
-			'uploads',
-			'projects',
-			String(fileRec.projectId),
-			'files',
-			fileRec.filename
+		// If stored in S3, redirect to a presigned URL; otherwise treat as missing
+		if (!fileRec.storageKey) return Error('File missing', 410);
+		const url = await getSignedUrl(
+			s3,
+			new GetObjectCommand({ Bucket: process.env.S3_BUCKET!, Key: fileRec.storageKey }),
+			{ expiresIn: 60 * 10 }
 		);
-		let stat;
-		try {
-			stat = await fs.stat(diskPath);
-		} catch {
-			return Error('File missing on disk', 410);
-		}
-		if (!stat.isFile()) return Error('File missing on disk', 410);
-		let data: Buffer;
-		try {
-			data = await fs.readFile(diskPath);
-		} catch {
-			return Error('Failed to read file', 500);
-		}
-		const safeName = sanitizeFilename(fileRec.originalName);
-		return new Response(new Uint8Array(data), {
-			status: 200,
-			headers: {
-				'Content-Type': fileRec.mimeType || 'application/octet-stream',
-				'Content-Length': String(data.length),
-				'Content-Disposition': `attachment; filename="${safeName}"`,
-				'Cache-Control': 'private, no-store',
-			},
-		});
+		return Response.redirect(url, 302);
 	} catch {
 		return Error('Failed to download');
 	}
 }
 
-function sanitizeFilename(name: string) {
-	return name.replace(/[\r\n"\\]+/g, '_').slice(0, 200) || 'download';
-}
+// Local filename sanitization removed due to S3-only storage

@@ -11,24 +11,24 @@ import { DeleteButton } from '@/components/common/delete-button';
 
 interface MemberItem { id: number; userId: number; user: { id: number; name: string | null; email: string; role: string }; }
 
-export function ProjectMembers({ projectId }: { projectId: number }) {
+export function ProjectMembers({ projectId, embedded = false }: { projectId: number; embedded?: boolean }) {
   const { can } = usePermissions();
   const { data, mutate, isLoading } = useSWR<MemberItem[]>(`/api/projects/${projectId}/users`, apiGet);
   const canManage = can(PERMISSIONS.MANAGE_PROJECT_USERS);
 
   if (!can(PERMISSIONS.READ_PROJECT)) return null;
 
-  return (
-    <AppCard className='mt-8'>
-      <AppCard.Header>
-        <AppCard.Title className='flex items-center gap-3'>
-          <span>Members</span>
-          {canManage && <QuickAddUserDialog projectId={projectId} onAdded={() => mutate()} />}
-        </AppCard.Title>
-        <AppCard.Description>Project user memberships.</AppCard.Description>
-      </AppCard.Header>
-      <AppCard.Content>
-        <MembersTable members={data || []} loading={isLoading} canManage={canManage} onRemove={async (userId) => {
+  const content = (
+    <div className='space-y-3'>
+      <div className='flex items-center justify-between gap-2'>
+        <div className='font-medium'>Members</div>
+        {canManage && <QuickAddUserDialog projectId={projectId} onAdded={() => mutate()} />}
+      </div>
+      <MembersTable
+        members={data || []}
+        loading={isLoading}
+        canManage={canManage}
+        onRemove={async (userId) => {
           try {
             const res = await fetch(`/api/projects/${projectId}/users`, {
               method: 'DELETE',
@@ -47,8 +47,22 @@ export function ProjectMembers({ projectId }: { projectId: number }) {
             toast.success('Removed');
             mutate();
           } catch (e) { toast.error((e as Error).message); }
-        }} />
-      </AppCard.Content>
+        }}
+      />
+    </div>
+  );
+
+  if (embedded) return content;
+  return (
+    <AppCard className='mt-8'>
+      <AppCard.Header>
+        <AppCard.Title className='flex items-center gap-3'>
+          <span>Members</span>
+          {canManage && <QuickAddUserDialog projectId={projectId} onAdded={() => mutate()} />}
+        </AppCard.Title>
+        <AppCard.Description>Project user memberships.</AppCard.Description>
+      </AppCard.Header>
+      <AppCard.Content>{content}</AppCard.Content>
     </AppCard>
   );
 }
