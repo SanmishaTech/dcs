@@ -19,16 +19,15 @@ export async function GET(
 	if (Number.isNaN(fid)) return Error('Invalid id', 400);
 
 	try {
-	const fileRec = await prisma.projectFile.findUnique({
+		const fileRec = await prisma.projectFile.findUnique({
 			where: { id: fid },
 			select: {
 				id: true,
 				projectId: true,
-				filename: true,
 				originalName: true,
 				mimeType: true,
 				size: true,
-		storageKey: true,
+				storageKey: true,
 			},
 		});
 		if (!fileRec) return Error('File not found', 404);
@@ -43,7 +42,10 @@ export async function GET(
 		if (!fileRec.storageKey) return Error('File missing', 410);
 		const url = await getSignedUrl(
 			s3,
-			new GetObjectCommand({ Bucket: process.env.S3_BUCKET!, Key: fileRec.storageKey }),
+			new GetObjectCommand({
+				Bucket: process.env.S3_BUCKET!,
+				Key: fileRec.storageKey,
+			}),
 			{ expiresIn: 60 * 10 }
 		);
 		return Response.redirect(url, 302);

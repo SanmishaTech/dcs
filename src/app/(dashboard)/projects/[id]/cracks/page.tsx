@@ -7,6 +7,7 @@ import { AppCard } from '@/components/common/app-card';
 import Link from 'next/link';
 import { buttonVariants } from '@/components/ui/button';
 import { ProjectCracks, type ProjectCracksHandle } from '../edit/project-cracks';
+import { ImportCracksDialog } from './import-cracks-dialog';
 
 interface ProjectDetail { id: number; name: string }
 
@@ -25,6 +26,7 @@ export default function ProjectCracksPage() {
         <AppCard.Title>Crack Identifications - {data?.name || '...'}</AppCard.Title>
         <AppCard.Description>Imported crack data for this project.</AppCard.Description>
         <AppCard.Action>
+          <ImportCracksDialog projectId={projectId} onImported={() => cracksRef.current?.reload()} />
           <Link
             href={`/projects/${projectId}/design`}
             className={buttonVariants({ variant: 'secondary', size: 'sm' })}
