@@ -213,7 +213,7 @@ function DesignImageView({
 				<TransformWrapper
 					ref={transformRef}
 					minScale={0.005}
-					maxScale={30}
+					maxScale={50}
 					limitToBounds={true}
 					disablePadding={false}
 					doubleClick={{ disabled: true }}
@@ -408,16 +408,25 @@ export default function ProjectDesignPage() {
 		const ry = Math.min(startPt.y, y);
 		const rw = Math.abs(x - startPt.x);
 		const rh = Math.abs(y - startPt.y);
-		setDraftRect({ x: rx, y: ry, width: rw, height: rh });
+		// Enforce a minimum visual thickness so vertical/horizontal hairlines are visible while dragging.
+		const MIN_VISUAL = 0.5; // image px
+		setDraftRect({ x: rx, y: ry, width: rw < MIN_VISUAL ? MIN_VISUAL : rw, height: rh < MIN_VISUAL ? MIN_VISUAL : rh });
 	};
 	const handlePointerUp = () => {
 		if (!drawing || !draftRect) {
 			setStartPt(null);
 			return;
 		}
-		// open create dialog with the drawn rect
-		setEditDialog({ mode: 'create', rect: draftRect, crackId: '' });
-		setPendingRect(draftRect);
+		// Coerce any zero dimension to a tiny hairline so user can proceed
+		const MIN_SAVE = 0.5;
+		const rectToSave = {
+			x: draftRect.x,
+			y: draftRect.y,
+			width: draftRect.width < MIN_SAVE ? MIN_SAVE : draftRect.width,
+			height: draftRect.height < MIN_SAVE ? MIN_SAVE : draftRect.height,
+		};
+		setEditDialog({ mode: 'create', rect: rectToSave, crackId: '' });
+		setPendingRect(rectToSave);
 		setDrawing(false);
 		setStartPt(null);
 	};
@@ -430,15 +439,20 @@ export default function ProjectDesignPage() {
 	const savePending = async () => {
 		if (!pendingRect || !natural || !selectedCrackId) return;
 		try {
-			// Normalize to natural image coords (currently already in image pixel space)
+			// Preserve high precision so very thin rectangles are possible (hairline overlays)
+			// Only round for payload size (6 decimals) without enforcing a minimum.
+			const round = (v: number) => Number(v.toFixed(6));
 			const payload = {
 				projectId,
 				crackIdentificationId: selectedCrackId,
-				x: Number(pendingRect.x.toFixed(2)),
-				y: Number(pendingRect.y.toFixed(2)),
-				width: Number(pendingRect.width.toFixed(2)),
-				height: Number(pendingRect.height.toFixed(2)),
+				x: round(pendingRect.x),
+				y: round(pendingRect.y),
+				width: round(pendingRect.width),
+				height: round(pendingRect.height),
 			};
+			// If user drew a perfectly vertical or horizontal line (dimension 0), promote to a hairline for visibility
+			if (payload.width === 0) payload.width = 0.5;
+			if (payload.height === 0) payload.height = 0.5;
 			const res = await fetch('/api/design-maps', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -534,6 +548,7 @@ export default function ProjectDesignPage() {
 								height = height / factor;
 							}
 							if (width <= 0 || height <= 0) return null;
+							const hairline = width < 1 || height < 1;
 							const ci = m.crackIdentification;
 							const chainage = ci
 								? [ci.chainageFrom, ci.chainageTo].filter(Boolean).join(' - ')
@@ -572,7 +587,7 @@ export default function ProjectDesignPage() {
 												top: y,
 												width,
 												height,
-												backgroundColor: 'rgba(254,240,138,0.35)',
+												backgroundColor: hairline ? 'rgba(254,240,138,0.55)' : 'rgba(254,240,138,0.35)',
 											}}
 											onContextMenu={() => {
 												setMenuTarget({ type: 'map', id: m.id });
@@ -616,7 +631,7 @@ export default function ProjectDesignPage() {
 									top: draftRect.y,
 									width: draftRect.width,
 									height: draftRect.height,
-									backgroundColor: 'rgba(254,240,138,0.45)',
+									backgroundColor: draftRect.width < 1 || draftRect.height < 1 ? 'rgba(254,240,138,0.55)' : 'rgba(254,240,138,0.45)',
 								}}
 							/>
 						)}
@@ -690,6 +705,7 @@ export default function ProjectDesignPage() {
 						height = height / factor;
 					}
 					if (width <= 0 || height <= 0) return null;
+					const hairline = width < 1 || height < 1;
 					const ci = m.crackIdentification;
 					const chainage = ci
 						? [ci.chainageFrom, ci.chainageTo].filter(Boolean).join(' - ')
@@ -728,7 +744,7 @@ export default function ProjectDesignPage() {
 										top: y,
 										width,
 										height,
-										backgroundColor: 'rgba(254,240,138,0.35)',
+										backgroundColor: hairline ? 'rgba(254,240,138,0.55)' : 'rgba(254,240,138,0.35)',
 									}}
 									onContextMenu={(e) => {
 										e.preventDefault();
@@ -772,7 +788,7 @@ export default function ProjectDesignPage() {
 							top: draftRect.y,
 							width: draftRect.width,
 							height: draftRect.height,
-							backgroundColor: 'rgba(254,240,138,0.45)',
+								backgroundColor: draftRect.width < 1 || draftRect.height < 1 ? 'rgba(254,240,138,0.55)' : 'rgba(254,240,138,0.45)',
 						}}
 					/>
 				)}
