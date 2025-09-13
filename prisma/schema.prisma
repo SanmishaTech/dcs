@@ -60,6 +60,7 @@ model Project {
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
   DesignMap   DesignMap[]
+  DesignStroke DesignStroke[]
 
   @@index([name])
   @@index([clientName])
@@ -144,6 +145,7 @@ model CrackIdentification {
   heightMm      Float?
   defectType    String?
   videoFileName String?
+  // color moved to DesignStroke
   // Video timeline position (HH:MM:SS). Stored as fixed-length CHAR(8) string (e.g. 03:30:00).
   startTime     String?    @db.Char(8)
   endTime       String?    @db.Char(8)
@@ -152,6 +154,7 @@ model CrackIdentification {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   DesignMap     DesignMap?
+  DesignStroke  DesignStroke[]
 
   @@index([projectId])
   @@index([blockId])
@@ -169,6 +172,26 @@ model DesignMap {
   y      Float
   width  Float
   height Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+// Freehand stroke (brush) drawn on the design image; stored as SVG path data in image coordinates
+model DesignStroke {
+  id                    Int                 @id @default(autoincrement())
+  projectId             Int
+  project               Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  crackIdentificationId Int                 // associates a stroke to a crack record
+  crackIdentification   CrackIdentification @relation(fields: [crackIdentificationId], references: [id], onDelete: Cascade)
+
+  // SVG path string (e.g., 'M x y L x y L x y ...') in natural image pixel coords
+  // Use MediumText to accommodate long freehand paths
+  path      String    @db.MediumText
+  thickness Float      @default(2)
+  color     String?    // optional hex color
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

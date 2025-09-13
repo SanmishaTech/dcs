@@ -1,7 +1,7 @@
 'use client';
 import { useParams } from 'next/navigation';
 import useSWR from 'swr';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import type { ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { apiGet } from '@/lib/api-client';
@@ -24,15 +24,11 @@ import {
 } from '@/components/ui/dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
-	Tooltip,
-	TooltipTrigger,
-	TooltipContent,
-} from '@/components/ui/tooltip';
-import {
 	AppCombobox,
 	type ComboOption,
 } from '@/components/common/app-combobox';
 import Link from 'next/link';
+import { Loader2, Pencil, Trash2, Brush } from 'lucide-react';
 import VideoPreviewDialog, {
 	type CrackInfo,
 } from '../edit/video-preview-dialog';
@@ -44,6 +40,7 @@ interface ProjectDetail {
 	name: string;
 	designImage?: string | null;
 }
+
 interface Crack {
 	id: number;
 	defectType: string | null;
@@ -56,19 +53,21 @@ interface Crack {
 	widthMm?: number | null;
 	heightMm?: number | null;
 }
+
 interface Block {
 	id: number;
 	name: string;
 	projectId: number;
 }
-interface DesignMapRec {
+
+
+interface DesignStrokeRec {
 	id: number;
 	projectId: number;
 	crackIdentificationId: number;
-	x: number;
-	y: number;
-	width: number;
-	height: number;
+	path: string;
+	thickness: number;
+	color?: string | null;
 	crackIdentification?: {
 		id: number;
 		defectType: string | null;
@@ -79,14 +78,13 @@ interface DesignMapRec {
 		widthMm: number | null;
 		heightMm: number | null;
 		block?: { id: number; name: string } | null;
-		// Optional video meta if available on crack record
 		videoFileName?: string | null;
 		startTime?: string | null;
 		endTime?: string | null;
 	} | null;
 }
 
-const WIDE_ASPECT_THRESHOLD = 4; // if image wider than 4:1, prefer height-based fit
+type Natural = { w: number; h: number } | null;
 
 function DesignImageView({
 	src,
@@ -94,76 +92,40 @@ function DesignImageView({
 	natural,
 	containerRef,
 	overlay,
-	mapsCount,
 	drawing,
 	loadingImage,
 }: {
 	src: string;
 	onImageLoad: (e: React.SyntheticEvent<HTMLImageElement>) => void;
-	natural: { w: number; h: number } | null;
+	natural: Natural;
 	containerRef: React.RefObject<HTMLDivElement>;
-	overlay?: React.ReactNode;
-	mapsCount: number;
+	overlay: (scale: number) => React.ReactNode;
 	drawing: boolean;
 	loadingImage: boolean;
 }) {
 	const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
-	const [scale, setScale] = useState(1);
+	const [scale, setScale] = useState(0.2);
+	const wrapperRef = useRef<HTMLDivElement | null>(null);
+	const [availH, setAvailH] = useState<number | null>(null);
 
-	const computeFit = useCallback(() => {
-		if (!containerRef.current || !natural) return 1;
-		const ch = containerRef.current.clientHeight;
-		return ch / natural.h || 1;
-	}, [natural, containerRef]);
-
-	const applyFit = useCallback(() => {
-		if (!transformRef.current || !containerRef.current || !natural) return;
-		const { setTransform } = transformRef.current;
-		const s = computeFit();
-		const cw = containerRef.current.clientWidth;
-		const dx = (cw - natural.w * s) / 2;
-		setTransform(dx, 0, s, 150, 'easeOut');
-	}, [computeFit, containerRef, natural]);
-
-	const handleReset = useCallback(() => {
-		if (!transformRef.current) return;
-		transformRef.current.setTransform(0, 0, 20, 150, 'easeOut');
+	useEffect(() => {
+		const calc = () => {
+			if (!wrapperRef.current) return;
+			const rect = wrapperRef.current.getBoundingClientRect();
+			const bottomPad = 16; // space under card
+			const h = Math.max(
+				240,
+				Math.floor(window.innerHeight - rect.top - bottomPad)
+			);
+			setAvailH(h);
+		};
+		calc();
+		window.addEventListener('resize', calc);
+		return () => window.removeEventListener('resize', calc);
 	}, []);
 
-	// Keyboard shortcuts
-	useEffect(() => {
-		function handler(e: KeyboardEvent) {
-			if (!transformRef.current) return;
-			if (
-				e.target instanceof HTMLInputElement ||
-				e.target instanceof HTMLTextAreaElement ||
-				(e.target as HTMLElement)?.isContentEditable
-			)
-				return;
-			const { zoomIn, zoomOut } = transformRef.current;
-			if (e.key === '+' || e.key === '=') {
-				e.preventDefault();
-				zoomIn(0.2);
-			} else if (e.key === '-') {
-				e.preventDefault();
-				zoomOut(0.2);
-			} else if (e.key === '0' || e.key.toLowerCase() === 'f') {
-				e.preventDefault();
-				applyFit();
-			}
-		}
-		window.addEventListener('keydown', handler);
-		return () => window.removeEventListener('keydown', handler);
-	}, [applyFit]);
-
-	const containerHeight = natural
-		? natural.w / natural.h > WIDE_ASPECT_THRESHOLD
-			? '90vh'
-			: '70vh'
-		: '75vh';
-
 	return (
-		<>
+		<div className='relative'>
 			<div className='flex flex-wrap gap-2 items-center mb-1'>
 				<AppButton
 					size='sm'
@@ -184,7 +146,7 @@ function DesignImageView({
 				<AppButton
 					size='sm'
 					type='button'
-					onClick={handleReset}
+					onClick={() => transformRef.current?.resetTransform()}
 					iconName='RefreshCcw'
 				>
 					Reset
@@ -197,7 +159,6 @@ function DesignImageView({
 						Image: {natural.w}×{natural.h}
 					</div>
 				)}
-				<div className='text-xs text-muted-foreground'>Maps: {mapsCount}</div>
 				{drawing && (
 					<div className='text-xs text-amber-600'>Drawing… drag on image</div>
 				)}
@@ -206,42 +167,38 @@ function DesignImageView({
 				)}
 			</div>
 			<div
-				ref={containerRef}
-				className='relative w-full border rounded bg-muted/30 overflow-hidden'
-				style={{ height: containerHeight }}
+				ref={wrapperRef}
+				className='relative border rounded bg-muted/30 overflow-hidden'
+				style={availH ? { height: availH } : undefined}
 			>
 				<TransformWrapper
 					ref={transformRef}
-					minScale={0.005}
-					maxScale={50}
-					limitToBounds={true}
-					disablePadding={false}
-					doubleClick={{ disabled: true }}
-					wheel={{ step: 0.2 }}
-					// Disable panning while drawing a new map to prevent image from moving
-					panning={{ disabled: drawing }}
 					initialScale={20}
-					initialPositionX={0}
-					initialPositionY={0}
-					alignmentAnimation={{ disabled: false }}
-					onTransformed={(_ref, state) => setScale(state.scale)}
+					onTransformed={(ref) => setScale(ref.state.scale)}
+					minScale={0.2}
+					maxScale={50}
+					limitToBounds
+					wheel={{ step: 0.2, disabled: drawing }}
+					pinch={{ disabled: drawing }}
+					panning={{ disabled: drawing }}
+					doubleClick={{ disabled: true }}
 				>
-					<TransformComponent wrapperClass='!h-full' contentClass='!h-full'>
-						<div className='relative h-full'>
+					<TransformComponent wrapperClass='!w-full !h-full'>
+						<div ref={containerRef} className='relative inline-block'>
 							{/* eslint-disable-next-line @next/next/no-img-element */}
 							<img
 								src={src}
-								alt='Design image'
+								alt='design'
 								onLoad={onImageLoad}
-								className='select-none pointer-events-none'
+								className='block max-w-full h-auto select-none'
 								draggable={false}
 							/>
-							{overlay}
+							{overlay(scale)}
 						</div>
 					</TransformComponent>
 				</TransformWrapper>
 			</div>
-		</>
+		</div>
 	);
 }
 
@@ -250,6 +207,7 @@ export default function ProjectDesignPage() {
 	const projectId = Number(id);
 	const { can } = usePermissions();
 	const canWrite = can(PERMISSIONS.WRITE_DESIGN_MAP);
+
 	const { data, error, isLoading } = useSWR<ProjectDetail>(
 		projectId ? `/api/projects/${projectId}` : null,
 		apiGet
@@ -259,6 +217,7 @@ export default function ProjectDesignPage() {
 		projectId ? `/api/blocks?projectId=${projectId}` : null,
 		apiGet
 	);
+
 	const cracksKey = projectId
 		? (() => {
 				const sp = new URLSearchParams();
@@ -271,12 +230,14 @@ export default function ProjectDesignPage() {
 		  })()
 		: null;
 	const { data: cracksData } = useSWR<{ items: Crack[] }>(cracksKey, apiGet);
-	const { data: designMapsData, mutate: mutateMaps } = useSWR<{
-		items: DesignMapRec[];
-	}>(projectId ? `/api/design-maps?projectId=${projectId}` : null, apiGet);
+	const { data: designStrokesData, mutate: mutateStrokes } = useSWR<{
+		items: DesignStrokeRec[];
+	}>(projectId ? `/api/design-strokes?projectId=${projectId}` : null, apiGet);
+
 	const containerRef = useRef<HTMLDivElement | null>(null);
-	const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+	const [natural, setNatural] = useState<Natural>(null);
 	const [imageSrc, setImageSrc] = useState<string | null>(null);
+
 	useEffect(() => {
 		(async () => {
 			if (!data?.designImage) {
@@ -296,51 +257,62 @@ export default function ProjectDesignPage() {
 						setImageSrc(j.url);
 						return;
 					}
-				} catch {
-					// ignore
-				}
+				} catch {}
 				setImageSrc(null);
 			} else {
 				setImageSrc(`/uploads/projects/${projectId}/designs/${val}`);
 			}
 		})();
 	}, [data?.designImage, projectId]);
+
+	// Drawing state
+	const [mode] = useState<'brush'>('brush');
 	const [drawing, setDrawing] = useState(false);
-	const [startPt, setStartPt] = useState<{ x: number; y: number } | null>(null);
-	const [draftRect, setDraftRect] = useState<{
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	} | null>(null);
-	const [pendingRect, setPendingRect] = useState<{
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	} | null>(null);
+	const [draftPoints, setDraftPoints] = useState<
+		Array<{ x: number; y: number }>
+	>([]);
+	const [pendingPath, setPendingPath] = useState<string | null>(null);
+
 	const [selectedCrackId, setSelectedCrackId] = useState<number | ''>('');
 	const [menuTarget, setMenuTarget] = useState<
-		{ type: 'map'; id: number } | { type: 'canvas' } | null
-	>(null);
-	const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-	const [editDialog, setEditDialog] = useState<{
-		mode: 'create' | 'update';
-		rect: { x: number; y: number; width: number; height: number };
-		id?: number;
-		crackId: number | '';
-	} | null>(null);
+			| { type: 'canvas' }
+			| { type: 'stroke'; id: number; crackId?: number | null }
+			| null
+		>(null);
+	const [createDialog, setCreateDialog] = useState<{ crackId: number | '' } | null>(null);
+	const [createThickness, setCreateThickness] = useState<number>(2);
+	const [createColor, setCreateColor] = useState<string>('#fef08a');
 	const [videoOpen, setVideoOpen] = useState(false);
 	const [videoCrack, setVideoCrack] = useState<CrackInfo | null>(null);
+	const [strokeEdit, setStrokeEdit] = useState<{
+		id: number;
+		crackId: number | '';
+		thickness: number;
+		color: string;
+	} | null>(null);
 
-	const designMaps = designMapsData?.items || [];
-	const cracks = cracksData?.items || [];
+	// Loading states for Save actions
+	const [savingCreate, setSavingCreate] = useState(false); // create stroke (select crack dialog)
+	const [savingStrokeEdit, setSavingStrokeEdit] = useState(false); // update stroke
+
+	// Delete confirmation for rect/stroke
+	const [confirmDelete, setConfirmDelete] = useState<
+		{ type: 'stroke'; id: number } | null
+	>(null);
+
+	const designStrokes = useMemo(() => designStrokesData?.items || [], [designStrokesData?.items]);
+	const cracks = useMemo(() => cracksData?.items || [], [cracksData?.items]);
+
+	// Color selection state inside the Select Crack dialog
+	// Color selection moved to stroke level; Select Crack dialog has no color controls
+
 	const formatNum = (v: number | null | undefined) =>
 		v == null
 			? ''
 			: Number.isInteger(v)
 			? String(v)
 			: (v as number).toFixed(2).replace(/\.00$/, '');
+
 	const crackOptions: ComboOption[] = (() => {
 		const opts = cracks.map((c) => {
 			const chainage = [c.chainageFrom, c.chainageTo]
@@ -366,21 +338,44 @@ export default function ProjectDesignPage() {
 				searchText: line,
 			} as ComboOption;
 		});
-		// Ensure current crack appears in update mode even if excluded by API
-		if (
-			editDialog?.mode === 'update' &&
-			editDialog.crackId &&
-			!cracks.find((c) => c.id === editDialog.crackId)
-		) {
-			const line = `#${editDialog.crackId} (current)`;
-			opts.unshift({
-				value: editDialog.crackId,
-				label: <div className='truncate text-sm'>{line}</div>,
-				searchText: line,
-			});
-		}
 		return opts;
 	})();
+
+	// Reorder options for Edit dialog to show the selected crack first; if it's not
+	// in the cracks list (because excludeMapped=1), synthesize it from the stroke.
+	const editCrackOptions: ComboOption[] = useMemo(() => {
+		if (!strokeEdit) return crackOptions;
+		const selectedId = strokeEdit.crackId;
+		const idx = crackOptions.findIndex((o) => o.value === selectedId);
+		if (idx >= 0) {
+			const sel = crackOptions[idx];
+			return [sel, ...crackOptions.slice(0, idx), ...crackOptions.slice(idx + 1)];
+		}
+		// Not found: add from current stroke's crack info (if available)
+		const st = designStrokes.find((s) => s.id === strokeEdit.id);
+		const ci = st?.crackIdentification;
+		if (ci) {
+			const chainage = [ci.chainageFrom, ci.chainageTo].filter(Boolean).join(' - ');
+			const hasDims = ci.lengthMm != null || ci.widthMm != null || ci.heightMm != null;
+			const dims = hasDims
+				? `${formatNum(ci.lengthMm)}×${formatNum(ci.widthMm)}×${formatNum(ci.heightMm)} mm`
+				: '';
+			const parts = [
+				chainage ? `Ch: ${chainage}` : null,
+				ci.rl != null ? `RL: ${formatNum(ci.rl)}` : null,
+				ci.defectType || null,
+				dims || null,
+			].filter(Boolean) as string[];
+			const line = `#${ci.id} ${parts.join(' | ')}`;
+			const opt: ComboOption = {
+				value: ci.id,
+				label: <div className='truncate text-sm'>{line}</div>,
+				searchText: line,
+			};
+			return [opt, ...crackOptions];
+		}
+		return crackOptions;
+	}, [crackOptions, designStrokes, strokeEdit]);
 
 	const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
 		const img = e.currentTarget;
@@ -388,135 +383,119 @@ export default function ProjectDesignPage() {
 	};
 
 	const handlePointerDown = (e: React.PointerEvent) => {
-		// only respond to left click for drawing
 		if (e.button !== 0) return;
 		if (!drawing || !natural) return;
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 		const scale = rect.width / natural.w || 1;
 		const x = (e.clientX - rect.left) / scale;
 		const y = (e.clientY - rect.top) / scale;
-		setStartPt({ x, y });
-		setDraftRect(null);
+		setDraftPoints([{ x, y }]);
 	};
+
 	const handlePointerMove = (e: React.PointerEvent) => {
-		if (!drawing || !natural || !startPt) return;
+		if (!drawing || !natural) return;
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 		const scale = rect.width / natural.w || 1;
 		const x = (e.clientX - rect.left) / scale;
 		const y = (e.clientY - rect.top) / scale;
-		const rx = Math.min(startPt.x, x);
-		const ry = Math.min(startPt.y, y);
-		const rw = Math.abs(x - startPt.x);
-		const rh = Math.abs(y - startPt.y);
-		// Enforce a minimum visual thickness so vertical/horizontal hairlines are visible while dragging.
-		const MIN_VISUAL = 0.5; // image px
-		setDraftRect({ x: rx, y: ry, width: rw < MIN_VISUAL ? MIN_VISUAL : rw, height: rh < MIN_VISUAL ? MIN_VISUAL : rh });
+		setDraftPoints((pts) => (pts.length ? [...pts, { x, y }] : pts));
 	};
+
 	const handlePointerUp = () => {
-		if (!drawing || !draftRect) {
-			setStartPt(null);
+		if (!drawing) return;
+		if (draftPoints.length < 2) {
+			setDraftPoints([]);
+			setDrawing(false);
 			return;
 		}
-		// Coerce any zero dimension to a tiny hairline so user can proceed
-		const MIN_SAVE = 0.5;
-		const rectToSave = {
-			x: draftRect.x,
-			y: draftRect.y,
-			width: draftRect.width < MIN_SAVE ? MIN_SAVE : draftRect.width,
-			height: draftRect.height < MIN_SAVE ? MIN_SAVE : draftRect.height,
-		};
-		setEditDialog({ mode: 'create', rect: rectToSave, crackId: '' });
-		setPendingRect(rectToSave);
+		const round = (v: number) => Number(v.toFixed(2));
+		const [p0, ...rest] = draftPoints;
+		const segs = [`M ${round(p0.x)} ${round(p0.y)}`].concat(
+			rest.map((p) => `L ${round(p.x)} ${round(p.y)}`)
+		);
+		const path = segs.join(' ');
+		setPendingPath(path);
+	setCreateDialog({ crackId: '' });
+	setCreateThickness(2);
+	setCreateColor('#fef08a');
 		setDrawing(false);
-		setStartPt(null);
 	};
 
 	const cancelPending = () => {
-		setPendingRect(null);
-		setDraftRect(null);
+		setPendingPath(null);
+		setDraftPoints([]);
 		setSelectedCrackId('');
+	setCreateThickness(2);
+	setCreateColor('#fef08a');
 	};
+
 	const savePending = async () => {
-		if (!pendingRect || !natural || !selectedCrackId) return;
+		if (!selectedCrackId) return;
 		try {
-			// Preserve high precision so very thin rectangles are possible (hairline overlays)
-			// Only round for payload size (6 decimals) without enforcing a minimum.
-			const round = (v: number) => Number(v.toFixed(6));
-			const payload = {
-				projectId,
-				crackIdentificationId: selectedCrackId,
-				x: round(pendingRect.x),
-				y: round(pendingRect.y),
-				width: round(pendingRect.width),
-				height: round(pendingRect.height),
-			};
-			// If user drew a perfectly vertical or horizontal line (dimension 0), promote to a hairline for visibility
-			if (payload.width === 0) payload.width = 0.5;
-			if (payload.height === 0) payload.height = 0.5;
-			const res = await fetch('/api/design-maps', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload),
-			});
-			if (!res.ok) {
-				const msg = await res.json().catch(() => ({}));
-				throw new Error(msg?.message || 'Failed to create map');
+			setSavingCreate(true);
+			if (pendingPath) {
+				// Enforce single-stroke-per-crack: update if exists, else create
+				const existing = designStrokes.find(
+					(s) => s.crackIdentificationId === selectedCrackId
+				);
+				let ok = false;
+				let res: Response | null = null;
+				if (existing) {
+					res = await fetch(`/api/design-strokes/${existing.id}`, {
+						method: 'PATCH',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ path: pendingPath, thickness: createThickness || existing.thickness || 2, color: createColor }),
+					});
+					ok = res.ok;
+				} else {
+		    res = await fetch('/api/design-strokes', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							projectId,
+							crackIdentificationId: selectedCrackId,
+							path: pendingPath,
+			    thickness: createThickness || 2,
+			    color: createColor,
+						}),
+					});
+					ok = res.ok;
+				}
+				if (!ok) {
+					const msg = await (res ? res.json().catch(() => ({})) : {});
+					throw new Error(msg?.message || 'Failed to create stroke');
+				}
+				await mutateStrokes();
+				toast.success('Stroke created');
+				setPendingPath(null);
+				setDraftPoints([]);
+				setCreateDialog(null);
+				setCreateThickness(2);
+				setCreateColor('#fef08a');
 			}
-			await mutateMaps();
-			toast.success('Map created');
-			cancelPending();
-			setEditDialog(null);
 		} catch (e) {
 			toast.error((e as Error).message);
+		} finally {
+			setSavingCreate(false);
 		}
 	};
 
-	async function handleDeleteMap(id: number) {
+	async function handleDelete(type: 'stroke', id: number) {
 		try {
-			const res = await fetch(`/api/design-maps/${id}`, { method: 'DELETE' });
-			if (!res.ok) {
-				const msg = await res.json().catch(() => ({}));
-				throw new Error(msg?.message || 'Delete failed');
-			}
-			toast.success('Map deleted');
-			await mutateMaps();
+			const url = `/api/design-strokes/${id}`;
+			const res = await fetch(url, { method: 'DELETE' });
+			if (!res.ok) throw new Error('Delete failed');
+			await mutateStrokes();
+			toast.success('Deleted');
 		} catch (e) {
 			toast.error((e as Error).message);
 		} finally {
 			setMenuTarget(null);
-			setConfirmDeleteId(null);
+			setConfirmDelete(null);
 		}
 	}
 
-	// Open update dialog from context menu (future enhancement could move/resize)
-	function openUpdateDialog(id: number) {
-		const m = designMaps.find((d) => d.id === id);
-		if (!m) return;
-		setEditDialog({
-			mode: 'update',
-			rect: { x: m.x, y: m.y, width: m.width, height: m.height },
-			id: m.id,
-			crackId: m.crackIdentificationId,
-		});
-	}
-
-	// Keyboard shortcut: ESC to cancel drawing or pending rectangle
-	useEffect(() => {
-		function keyHandler(e: KeyboardEvent) {
-			if (e.key === 'Escape') {
-				if (drawing) {
-					setDrawing(false);
-					setDraftRect(null);
-				} else if (pendingRect) {
-					cancelPending();
-				}
-			}
-		}
-		window.addEventListener('keydown', keyHandler);
-		return () => window.removeEventListener('keydown', keyHandler);
-	}, [drawing, pendingRect]);
-
-	const overlay =
+	const overlay = (scale: number) =>
 		natural &&
 		(canWrite ? (
 			<ContextMenu>
@@ -529,71 +508,68 @@ export default function ProjectDesignPage() {
 						onPointerUp={handlePointerUp}
 						onContextMenuCapture={() => setMenuTarget({ type: 'canvas' })}
 					>
-						{/* Existing maps (single consistent color) */}
-						{designMaps.map((m) => {
-							// Adaptive fallback: if any stored dimension exceeds natural bounds by >1.5x, treat as legacy scaled coords and compress.
-							let { x, y, width, height } = m;
-							const overScale = Math.max(
-								width / natural.w,
-								height / natural.h,
-								x / natural.w,
-								y / natural.h
-							);
-							if (overScale > 1.5) {
-								// heuristic: divide by round(overScale) to bring into view (limit 50 to avoid extremes)
-								const factor = Math.min(50, Math.round(overScale));
-								x = x / factor;
-								y = y / factor;
-								width = width / factor;
-								height = height / factor;
-							}
-							if (width <= 0 || height <= 0) return null;
-							const hairline = width < 1 || height < 1;
-							const ci = m.crackIdentification;
-							const chainage = ci
-								? [ci.chainageFrom, ci.chainageTo].filter(Boolean).join(' - ')
-								: '';
-							const dims = ci
-								? [ci.lengthMm, ci.widthMm, ci.heightMm]
-										.map((v) =>
-											v == null
-												? ''
-												: Number.isInteger(v)
-												? String(v)
-												: (v as number).toFixed(2).replace(/\.00$/, '')
-										)
-										.join('×')
-								: '';
-							const rl = ci?.rl != null ? String(ci.rl) : '';
-							const defect = ci?.defectType || '';
-							const blockName = ci?.block?.name || '';
-							const tooltip =
-								`${defect ? defect : ''}${
-									blockName ? (defect ? ' | ' : '') + 'Block: ' + blockName : ''
-								}${
-									chainage
-										? (defect || blockName ? ' | ' : '') + 'Ch: ' + chainage
-										: ''
-								}${rl ? ' | RL: ' + rl : ''}${
-									dims.trim() ? ' | Dim: ' + dims + ' mm' : ''
-								}` || `#${m.id}`;
-							return (
-								<Tooltip key={m.id}>
-									<TooltipTrigger asChild>
-										<div
-											className='absolute overflow-visible z-30 cursor-pointer'
-											style={{
-												left: x,
-												top: y,
-												width,
-												height,
-												backgroundColor: hairline ? 'rgba(254,240,138,0.55)' : 'rgba(254,240,138,0.35)',
-											}}
-											onContextMenu={() => {
-												setMenuTarget({ type: 'map', id: m.id });
-											}}
+						<svg
+							className='absolute top-0 left-0 z-20'
+							width={natural.w}
+							height={natural.h}
+							viewBox={`0 0 ${natural.w} ${natural.h}`}
+						>
+							{/* Strokes */}
+							{designStrokes.map((s) => {
+								const ci = s.crackIdentification;
+								const tooltipTitle = ci
+									? [
+											ci.defectType || '',
+											ci.block?.name ? `Block: ${ci.block.name}` : '',
+											[ci.chainageFrom, ci.chainageTo]
+												.filter(Boolean)
+												.join(' - ')
+												? `Ch: ${[ci.chainageFrom, ci.chainageTo]
+														.filter(Boolean)
+														.join(' - ')}`
+												: '',
+											ci.rl != null ? `RL: ${ci.rl}` : '',
+									  ]
+											.filter(Boolean)
+											.join(' | ')
+									: `#${s.id}`;
+								return (
+									<g key={`stroke-${s.id}`}>
+										<title>{tooltipTitle}</title>
+												<path
+											d={s.path}
+											fill='none'
+													stroke={(() => {
+														const c = s.color;
+														if (!c) return 'rgba(254,240,138,0.7)';
+														if (c === 'yellow') return 'rgba(254,240,138,0.7)';
+														if (c === 'red') return 'rgba(239,68,68,0.7)';
+														if (c === 'white') return 'rgba(255,255,255,0.7)';
+														const hex = c.trim();
+														if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
+															let hc = hex.slice(1);
+															if (hc.length === 3) hc = hc.split('').map((ch) => ch + ch).join('');
+															const num = parseInt(hc, 16);
+															const r = (num >> 16) & 255;
+															const g = (num >> 8) & 255;
+															const b = num & 255;
+															return `rgba(${r},${g},${b},0.7)`;
+														}
+														return c; // assume valid CSS color
+													})()}
+											strokeWidth={Math.max(0.5, ((s.thickness || 2) * 0.5) / (scale || 1))}
+											strokeLinecap='round'
+											strokeLinejoin='round'
+											className='cursor-pointer'
+											onContextMenu={() =>
+												setMenuTarget({
+													type: 'stroke',
+													id: s.id,
+													crackId: s.crackIdentification?.id ?? null,
+												})
+											}
 											onClick={() => {
-												const ci = m.crackIdentification;
+												const ci = s.crackIdentification;
 												if (!ci) {
 													setVideoCrack(null);
 													setVideoOpen(true);
@@ -617,191 +593,176 @@ export default function ProjectDesignPage() {
 												setVideoOpen(true);
 											}}
 										/>
-									</TooltipTrigger>
-									<TooltipContent>{tooltip}</TooltipContent>
-								</Tooltip>
-							);
-						})}
-						{/* Draft rectangle while dragging */}
-						{draftRect && (
-							<div
-								className='absolute'
-								style={{
-									left: draftRect.x,
-									top: draftRect.y,
-									width: draftRect.width,
-									height: draftRect.height,
-									backgroundColor: draftRect.width < 1 || draftRect.height < 1 ? 'rgba(254,240,138,0.55)' : 'rgba(254,240,138,0.45)',
-								}}
-							/>
-						)}
+									</g>
+								);
+							})}
+
+							{/* Rect maps removed */}
+
+							{/* Draft overlays */}
+							{mode === 'brush' && draftPoints.length > 1 && (
+								<polyline
+									points={draftPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+									fill='none'
+									stroke={(() => {
+										const c = createColor;
+										if (!c) return 'rgba(254,240,138,0.7)';
+										if (c === 'yellow') return 'rgba(254,240,138,0.7)';
+										if (c === 'red') return 'rgba(239,68,68,0.7)';
+										if (c === 'white') return 'rgba(255,255,255,0.7)';
+										const hex = c.trim();
+										if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
+											let hc = hex.slice(1);
+											if (hc.length === 3) hc = hc.split('').map((ch) => ch + ch).join('');
+											const num = parseInt(hc, 16);
+											const r = (num >> 16) & 255;
+											const g = (num >> 8) & 255;
+											const b = num & 255;
+											return `rgba(${r},${g},${b},0.7)`;
+										}
+										return c;
+									})()}
+									strokeWidth={Math.max(0.5, ((createThickness || 2) * 0.5) / (scale || 1))}
+									strokeLinecap='round'
+									strokeLinejoin='round'
+								/>
+							)}
+							{/* No rectangle drafts in strokes-only mode */}
+						</svg>
 					</div>
 				</ContextMenuTrigger>
 				<ContextMenuContent>
-					{menuTarget?.type === 'map' ? (
+					{menuTarget?.type === 'stroke' ? (
 						canWrite ? (
 							<>
 								<ContextMenuItem
 									onSelect={() => {
-										if (menuTarget?.type === 'map')
-											openUpdateDialog(menuTarget.id);
-										setMenuTarget(null);
+										if (menuTarget?.type === 'stroke') {
+											const s = designStrokes.find((x) => x.id === menuTarget.id);
+											if (s) {
+												let col = s.color || '#fef08a';
+												if (col === 'yellow') col = '#fef08a';
+												if (col === 'red') col = '#ef4444';
+												if (col === 'white') col = '#ffffff';
+												setStrokeEdit({
+													id: s.id,
+													crackId: s.crackIdentificationId,
+													thickness: Math.max(1, s.thickness || 2),
+													color: col,
+												});
+											}
+										}
 									}}
 								>
-									Edit Map
+									<Pencil className='mr-2 h-4 w-4' /> Edit
 								</ContextMenuItem>
 								<ContextMenuItem
-									variant='destructive'
 									onSelect={() => {
-										setConfirmDeleteId(menuTarget.id);
-										setMenuTarget(null);
+										if (menuTarget?.type === 'stroke')
+											setConfirmDelete({ type: 'stroke', id: menuTarget.id });
 									}}
+									variant='destructive'
 								>
-									Delete Map
+									<Trash2 className='mr-2 h-4 w-4' /> Delete
 								</ContextMenuItem>
 							</>
 						) : null
 					) : canWrite ? (
-						<ContextMenuItem
-							onSelect={() => {
-								cancelPending();
-								setDrawing(true);
-								setMenuTarget(null);
-							}}
-						>
-							New Map
-						</ContextMenuItem>
+						<>
+							<ContextMenuItem
+								onSelect={() => {
+									cancelPending();
+									setDrawing(true);
+									setMenuTarget(null);
+								}}
+							>
+								<Brush className='mr-2 h-4 w-4' /> New Stroke
+							</ContextMenuItem>
+						</>
 					) : null}
 				</ContextMenuContent>
-			</ContextMenu>
-		) : (
-			// No write permission: render overlay without context menu and block right-click
+				</ContextMenu>
+			) : (
 			<div
 				className='absolute top-0 left-0'
 				style={{ width: natural.w, height: natural.h }}
 				onPointerDown={handlePointerDown}
 				onPointerMove={handlePointerMove}
 				onPointerUp={handlePointerUp}
-				onContextMenu={(e) => {
-					e.preventDefault();
-				}}
+				onContextMenu={(e) => e.preventDefault()}
 			>
-				{/* Existing maps (single consistent color) */}
-				{designMaps.map((m) => {
-					// Adaptive fallback: if any stored dimension exceeds natural bounds by >1.5x, treat as legacy scaled coords and compress.
-					let { x, y, width, height } = m;
-					const overScale = Math.max(
-						width / natural.w,
-						height / natural.h,
-						x / natural.w,
-						y / natural.h
-					);
-					if (overScale > 1.5) {
-						// heuristic: divide by round(overScale) to bring into view (limit 50 to avoid extremes)
-						const factor = Math.min(50, Math.round(overScale));
-						x = x / factor;
-						y = y / factor;
-						width = width / factor;
-						height = height / factor;
-					}
-					if (width <= 0 || height <= 0) return null;
-					const hairline = width < 1 || height < 1;
-					const ci = m.crackIdentification;
-					const chainage = ci
-						? [ci.chainageFrom, ci.chainageTo].filter(Boolean).join(' - ')
-						: '';
-					const dims = ci
-						? [ci.lengthMm, ci.widthMm, ci.heightMm]
-								.map((v) =>
-									v == null
-										? ''
-										: Number.isInteger(v)
-										? String(v)
-										: (v as number).toFixed(2).replace(/\.00$/, '')
-								)
-								.join('×')
-						: '';
-					const rl = ci?.rl != null ? String(ci.rl) : '';
-					const defect = ci?.defectType || '';
-					const blockName = ci?.block?.name || '';
-					const tooltip =
-						`${defect ? defect : ''}${
-							blockName ? (defect ? ' | ' : '') + 'Block: ' + blockName : ''
-						}${
-							chainage
-								? (defect || blockName ? ' | ' : '') + 'Ch: ' + chainage
-								: ''
-						}${rl ? ' | RL: ' + rl : ''}${
-							dims.trim() ? ' | Dim: ' + dims + ' mm' : ''
-						}` || `#${m.id}`;
-					return (
-						<Tooltip key={m.id}>
-							<TooltipTrigger asChild>
-								<div
-									className='absolute overflow-visible z-30 cursor-pointer'
-									style={{
-										left: x,
-										top: y,
-										width,
-										height,
-										backgroundColor: hairline ? 'rgba(254,240,138,0.55)' : 'rgba(254,240,138,0.35)',
-									}}
-									onContextMenu={(e) => {
-										e.preventDefault();
-									}}
-									onClick={() => {
-										const ci = m.crackIdentification;
-										if (!ci) {
-											setVideoCrack(null);
-											setVideoOpen(true);
-											return;
+				<svg
+					className='absolute top-0 left-0 z-20'
+					width={natural.w}
+					height={natural.h}
+					viewBox={`0 0 ${natural.w} ${natural.h}`}
+				>
+							{designStrokes.map((s) => (
+								<path
+									key={`stroke-${s.id}`}
+									d={s.path}
+									fill='none'
+									stroke={(() => {
+										const c = s.color;
+										if (!c) return 'rgba(254,240,138,0.7)';
+										if (c === 'yellow') return 'rgba(254,240,138,0.7)';
+										if (c === 'red') return 'rgba(239,68,68,0.7)';
+										if (c === 'white') return 'rgba(255,255,255,0.7)';
+										const hex = c.trim();
+										if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
+											let hc = hex.slice(1);
+											if (hc.length === 3) hc = hc.split('').map((ch) => ch + ch).join('');
+											const num = parseInt(hc, 16);
+											const r = (num >> 16) & 255;
+											const g = (num >> 8) & 255;
+											const b = num & 255;
+											return `rgba(${r},${g},${b},0.7)`;
 										}
-										const payload: CrackInfo = {
-											id: ci.id,
-											blockName: ci.block?.name || null,
-											chainageFrom: ci.chainageFrom,
-											chainageTo: ci.chainageTo,
-											rl: ci.rl,
-											defectType: ci.defectType,
-											lengthMm: ci.lengthMm,
-											widthMm: ci.widthMm,
-											heightMm: ci.heightMm,
-											videoFileName: ci.videoFileName,
-											startTime: ci.startTime,
-											endTime: ci.endTime,
-										};
-										setVideoCrack(payload);
-										setVideoOpen(true);
-									}}
+										return c;
+									})()}
+									strokeWidth={Math.max(0.5, ((s.thickness || 2) * 0.5) / (scale || 1))}
+									strokeLinecap='round'
+									strokeLinejoin='round'
 								/>
-							</TooltipTrigger>
-							<TooltipContent>{tooltip}</TooltipContent>
-						</Tooltip>
-					);
-				})}
-				{/* Draft rectangle while dragging */}
-				{draftRect && (
-					<div
-						className='absolute'
-						style={{
-							left: draftRect.x,
-							top: draftRect.y,
-							width: draftRect.width,
-							height: draftRect.height,
-								backgroundColor: draftRect.width < 1 || draftRect.height < 1 ? 'rgba(254,240,138,0.55)' : 'rgba(254,240,138,0.45)',
-						}}
-					/>
-				)}
+							))}
+					{/* Maps removed in read-only view */}
+					{mode === 'brush' && draftPoints.length > 1 && (
+						<polyline
+							points={draftPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+							fill='none'
+							stroke={(() => {
+								const c = createColor;
+								if (!c) return 'rgba(254,240,138,0.7)';
+								if (c === 'yellow') return 'rgba(254,240,138,0.7)';
+								if (c === 'red') return 'rgba(239,68,68,0.7)';
+								if (c === 'white') return 'rgba(255,255,255,0.7)';
+								const hex = c.trim();
+								if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
+									let hc = hex.slice(1);
+									if (hc.length === 3) hc = hc.split('').map((ch) => ch + ch).join('');
+									const num = parseInt(hc, 16);
+									const r = (num >> 16) & 255;
+									const g = (num >> 8) & 255;
+									const b = num & 255;
+									return `rgba(${r},${g},${b},0.7)`;
+								}
+								return c;
+							})()}
+							strokeWidth={Math.max(0.5, ((createThickness || 2) * 0.5) / (scale || 1))}
+							strokeLinecap='round'
+							strokeLinejoin='round'
+						/>
+					)}
+					{/* No rectangle drafts in strokes-only mode */}
+				</svg>
 			</div>
 		));
 
 	if (!projectId) return <div className='p-6'>Invalid project id</div>;
 	if (error)
 		return <div className='p-6 text-destructive'>Failed to load project</div>;
-	// View access: allow users with READ_DESIGN_MAP (project users can view); editing requires WRITE_DESIGN_MAP
-	if (!isLoading && !can(PERMISSIONS.READ_DESIGN_MAP)) {
+	if (!isLoading && !can(PERMISSIONS.READ_DESIGN_MAP))
 		return <div className='p-6 text-destructive'>Access restricted.</div>;
-	}
 
 	return (
 		<AppCard className='mt-4'>
@@ -837,7 +798,6 @@ export default function ProjectDesignPage() {
 							natural={natural}
 							containerRef={containerRef}
 							overlay={overlay}
-							mapsCount={designMaps.length}
 							drawing={drawing}
 							loadingImage={!!imageSrc && !natural}
 						/>
@@ -869,90 +829,102 @@ export default function ProjectDesignPage() {
 							</div>
 						)}
 						<ConfirmDialog
-							open={confirmDeleteId != null}
+							open={confirmDelete != null}
 							onOpenChange={(o) => {
-								if (!o) setConfirmDeleteId(null);
+								if (!o) setConfirmDelete(null);
 							}}
-							title='Delete map?'
-							description={
-								confirmDeleteId != null
-									? `This will permanently remove map #${confirmDeleteId}.`
-									: undefined
-							}
+							title='Delete overlay?'
+							description={confirmDelete ? `This will permanently remove stroke #${confirmDelete.id}.` : undefined}
 							confirmText='Delete'
 							onConfirm={async () => {
-								if (confirmDeleteId != null)
-									await handleDeleteMap(confirmDeleteId);
+								if (confirmDelete) {
+									await handleDelete(confirmDelete.type, confirmDelete.id);
+								}
 							}}
 						/>
 
 						<Dialog
-							open={!!editDialog}
+							open={!!createDialog}
 							onOpenChange={(o) => {
 								if (!o) {
-									if (editDialog?.mode === 'create') cancelPending();
-									setEditDialog(null);
+									cancelPending();
+									setCreateDialog(null);
 								}
 							}}
 						>
 							<DialogContent>
 								<DialogHeader>
-									<DialogTitle>
-										{editDialog?.mode === 'update'
-											? 'Update Map'
-											: 'Create Map'}
-									</DialogTitle>
+									<DialogTitle>Select Crack</DialogTitle>
 								</DialogHeader>
 								<div className='space-y-3'>
-									<div className='flex flex-col gap-3'>
-										<div className='flex items-center gap-2'>
-											<label className='text-sm w-20 shrink-0'>Block</label>
-											<div className='flex-1'>
-												<AppCombobox
-													options={[
-														{
-															value: 'all',
-															label: (
-																<div className='truncate text-sm'>All</div>
-															),
-															searchText: 'All',
-														},
-														...(blocks || []).map((b) => ({
-															value: b.id,
-															label: (
-																<div className='truncate text-sm'>{b.name}</div>
-															),
-															searchText: b.name,
-														})),
-													]}
-													value={blockFilter}
-													onValueChange={(v) =>
-														setBlockFilter(
-															v === null || v === 'all' ? 'all' : Number(v)
-														)
-													}
-													placeholder='All Blocks'
-													searchPlaceholder='Search blocks...'
-													emptyText='No blocks'
-												/>
-											</div>
+									<div className='flex items-center gap-2'>
+										<label className='text-sm w-20 shrink-0'>Block</label>
+										<div className='flex-1'>
+											<AppCombobox
+												options={[
+													{
+														value: 'all',
+														label: <div className='truncate text-sm'>All</div>,
+														searchText: 'All',
+													},
+													...(blocks || []).map((b) => ({
+														value: b.id,
+														label: (
+															<div className='truncate text-sm'>{b.name}</div>
+														),
+														searchText: b.name,
+													})),
+												]}
+												value={blockFilter}
+												onValueChange={(v) =>
+													setBlockFilter(
+														v === null || v === 'all' ? 'all' : Number(v)
+													)
+												}
+												placeholder='All Blocks'
+												searchPlaceholder='Search blocks...'
+												emptyText='No blocks'
+											/>
 										</div>
+									</div>
+									<div className='flex items-center gap-2'>
+										<label className='text-sm w-20 shrink-0'>Crack</label>
+										<div className='flex-1'>
+											<AppCombobox
+												options={editCrackOptions}
+												value={createDialog?.crackId ?? null}
+												onValueChange={(v) =>
+													setCreateDialog((d) =>
+														d ? { crackId: v ? Number(v) : '' } : d
+													)
+												}
+												placeholder='Select Crack'
+												searchPlaceholder='Search cracks...'
+												emptyText='No cracks'
+											/>
+										</div>
+									</div>
+									<div className='flex items-center gap-2'>
+										<label className='text-sm w-20 shrink-0'>Color</label>
 										<div className='flex items-center gap-2'>
-											<label className='text-sm w-20 shrink-0'>Crack</label>
-											<div className='flex-1'>
-												<AppCombobox
-													options={crackOptions}
-													value={editDialog?.crackId ?? null}
-													onValueChange={(v) =>
-														setEditDialog((d) =>
-															d ? { ...d, crackId: v ? Number(v) : '' } : d
-														)
-													}
-													placeholder='Select Crack'
-													searchPlaceholder='Search cracks...'
-													emptyText='No cracks'
-												/>
-											</div>
+											<button
+												type='button'
+												title='Yellow'
+												onClick={() => setCreateColor('#fef08a')}
+												className={`h-5 w-5 rounded-full border bg-amber-300 ${createColor === '#fef08a' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+											/>
+											<button
+												type='button'
+												title='Red'
+												onClick={() => setCreateColor('#ef4444')}
+												className={`h-5 w-5 rounded-full border bg-red-500 ${createColor === '#ef4444' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+											/>
+											<button
+												type='button'
+												title='White'
+												onClick={() => setCreateColor('#ffffff')}
+												className={`h-5 w-5 rounded-full border bg-white ${createColor === '#ffffff' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+											/>
 										</div>
 									</div>
 								</div>
@@ -962,63 +934,155 @@ export default function ProjectDesignPage() {
 										size='sm'
 										type='button'
 										onClick={() => {
-											if (editDialog?.mode === 'create') cancelPending();
-											setEditDialog(null);
+											cancelPending();
+											setCreateDialog(null);
 										}}
 									>
 										Cancel
 									</Button>
-									{editDialog?.mode === 'create' ? (
-										<Button
-											size='sm'
-											type='button'
-											onClick={() => {
-												if (editDialog?.crackId) {
-													setSelectedCrackId(editDialog.crackId);
-													void savePending();
-												}
-											}}
-										>
-											Save
-										</Button>
-									) : (
-										<Button
-											size='sm'
-											type='button'
-											onClick={async () => {
-												if (editDialog?.id && editDialog?.crackId) {
-													try {
-														const res = await fetch(
-															`/api/design-maps/${editDialog.id}`,
-															{
-																method: 'PATCH',
-																headers: { 'Content-Type': 'application/json' },
-																body: JSON.stringify({
-																	crackIdentificationId: editDialog.crackId,
-																}),
-															}
-														);
-														if (!res.ok) {
-															const msg = await res.json().catch(() => ({}));
-															throw new Error(
-																msg?.message || 'Failed to update map'
-															);
-														}
-														await mutateMaps();
-														toast.success('Map updated');
-														setEditDialog(null);
-													} catch (e) {
-														toast.error((e as Error).message);
-													}
-												}
-											}}
-										>
-											Save
-										</Button>
-									)}
+									<Button
+										size='sm'
+										type='button'
+										disabled={!createDialog?.crackId || savingCreate}
+										onClick={() => {
+											if (createDialog?.crackId) {
+												setSelectedCrackId(createDialog.crackId);
+												void savePending();
+											}
+										}}
+									>
+										{savingCreate ? (
+											<span className='inline-flex items-center gap-2'>
+												<Loader2 className='h-4 w-4 animate-spin' />
+												Saving...
+											</span>
+										) : (
+											'Save'
+										)}
+									</Button>
 								</DialogFooter>
 							</DialogContent>
 						</Dialog>
+
+						{/* Stroke Edit Dialog */}
+						<Dialog
+							open={!!strokeEdit}
+							onOpenChange={(o) => {
+								if (!o) setStrokeEdit(null);
+							}}
+						>
+							<DialogContent>
+								<DialogHeader>
+									<DialogTitle>Edit Stroke</DialogTitle>
+								</DialogHeader>
+								{strokeEdit && (
+									<div className='space-y-3'>
+										<div className='flex items-center gap-2'>
+											<label className='text-sm w-24 shrink-0'>Crack</label>
+											<div className='flex-1'>
+												<AppCombobox
+													options={crackOptions}
+													value={strokeEdit.crackId ?? null}
+													onValueChange={(v) =>
+														setStrokeEdit((s) =>
+															s ? { ...s, crackId: v ? Number(v) : '' } : s
+														)
+													}
+													placeholder='Select Crack'
+													searchPlaceholder='Search cracks...'
+													emptyText='No cracks'
+												/>
+											</div>
+										</div>
+										<div className='flex items-center gap-2'>
+											<label className='text-sm w-24 shrink-0'>Color</label>
+											<div className='flex items-center gap-2'>
+												<button
+													type='button'
+													title='Yellow'
+													onClick={() =>
+														setStrokeEdit((s) => (s ? { ...s, color: '#fef08a' } : s))
+													}
+													className={`h-5 w-5 rounded-full border bg-amber-300 ${strokeEdit.color === '#fef08a' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+												/>
+												<button
+													type='button'
+													title='Red'
+													onClick={() =>
+														setStrokeEdit((s) => (s ? { ...s, color: '#ef4444' } : s))
+													}
+													className={`h-5 w-5 rounded-full border bg-red-500 ${strokeEdit.color === '#ef4444' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+												/>
+												<button
+													type='button'
+													title='White'
+													onClick={() =>
+														setStrokeEdit((s) => (s ? { ...s, color: '#ffffff' } : s))
+													}
+													className={`h-5 w-5 rounded-full border bg-white ${strokeEdit.color === '#ffffff' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+												/>
+											</div>
+										</div>
+									</div>
+								)}
+								<DialogFooter className='mt-4'>
+									<Button
+										variant='outline'
+										size='sm'
+										type='button'
+										onClick={() => setStrokeEdit(null)}
+									>
+										Cancel
+									</Button>
+									<Button
+										size='sm'
+										type='button'
+										disabled={!strokeEdit || savingStrokeEdit}
+										onClick={async () => {
+											if (!strokeEdit) return;
+											try {
+												setSavingStrokeEdit(true);
+												const res = await fetch(
+													`/api/design-strokes/${strokeEdit.id}`,
+													{
+														method: 'PATCH',
+														headers: { 'Content-Type': 'application/json' },
+														body: JSON.stringify({
+															crackIdentificationId:
+																strokeEdit.crackId || undefined,
+															color: strokeEdit.color,
+														}),
+													}
+												);
+												if (!res.ok) {
+													const msg = await res.json().catch(() => ({}));
+													throw new Error(
+														msg?.message || 'Failed to update stroke'
+													);
+												}
+												await mutateStrokes();
+												toast.success('Stroke updated');
+												setStrokeEdit(null);
+											} catch (e) {
+												toast.error((e as Error).message);
+											} finally {
+												setSavingStrokeEdit(false);
+											}
+										}}
+									>
+										{savingStrokeEdit ? (
+											<span className='inline-flex items-center gap-2'>
+												<Loader2 className='h-4 w-4 animate-spin' />
+												Saving...
+											</span>
+										) : (
+											'Save'
+										)}
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
+
 						<VideoPreviewDialog
 							open={videoOpen}
 							onOpenChange={(o) => {

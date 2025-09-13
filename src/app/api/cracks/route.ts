@@ -95,10 +95,17 @@ export async function GET(req: NextRequest) {
 	const pageSize = Math.min(100, Number(searchParams.get('pageSize') || '20'));
 	const skip = (page - 1) * pageSize;
 
-		const where: Parameters<typeof prisma.crackIdentification.findMany>[0]['where'] = { projectId };
+		let where: NonNullable<Parameters<typeof prisma.crackIdentification.findMany>[0]>['where'] = { projectId };
 	if (blockId) where.blockId = blockId;
 	if (defectType) where.defectType = defectType;
-			if (excludeMapped) where.DesignMap = null;
+				if (excludeMapped) {
+					// Exclude cracks that already have a rectangle map or any stroke
+					where = {
+						...where,
+						DesignMap: null,
+						DesignStroke: { none: {} },
+					};
+				}
 
 	const [items, total] = await Promise.all([
 		prisma.crackIdentification.findMany({
@@ -127,6 +134,8 @@ export async function DELETE(req: NextRequest) {
 	const deleted = await prisma.crackIdentification.deleteMany({ where });
 	return Success({ deleted: deleted.count });
 }
+
+// PATCH /api/cracks/:id  body: { color?: 'yellow' | 'red' | 'white' | null }
 
 export async function POST(req: NextRequest) {
 	// Basic validation

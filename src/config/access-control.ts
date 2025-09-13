@@ -98,6 +98,15 @@ export const API_ACCESS_RULES: ApiAccessRule[] = [
       DELETE: [PERMISSIONS.WRITE_DESIGN_MAP],
     },
   },
+  {
+    prefix: '/api/design-strokes',
+    methods: {
+      GET: [PERMISSIONS.READ_DESIGN_MAP],
+      POST: [PERMISSIONS.WRITE_DESIGN_MAP],
+      PATCH: [PERMISSIONS.WRITE_DESIGN_MAP],
+      DELETE: [PERMISSIONS.WRITE_DESIGN_MAP],
+    },
+  },
   // add more API rules here
 ];
 

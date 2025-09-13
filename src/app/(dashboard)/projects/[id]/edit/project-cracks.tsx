@@ -20,6 +20,7 @@ interface Crack {
 	startTime: string | null;
 	endTime: string | null;
 	videoFileName?: string | null;
+	color?: 'yellow' | 'red' | 'white' | null;
 }
 
 export type ProjectCracksHandle = { reload: () => void };
@@ -30,8 +31,9 @@ export const ProjectCracks = forwardRef<ProjectCracksHandle, { projectId: number
 	const [openGroups, setOpenGroups] = useState<string[]>([]);
 	const [videoOpen, setVideoOpen] = useState(false);
 	const [videoCrack, setVideoCrack] = useState<CrackInfo | null>(null);
+	// Removed color selection from this page
 
-	const headers: { key: string; title: string; align: 'left' | 'right' }[] = [
+		const headers: { key: string; title: string; align: 'left' | 'right' }[] = [
 		{ key: 'id', title: 'ID', align: 'left' },
 		{ key: 'chainage', title: 'Chainage', align: 'left' },
 		{ key: 'rl', title: 'RL', align: 'right' },
@@ -80,6 +82,8 @@ export const ProjectCracks = forwardRef<ProjectCracksHandle, { projectId: number
 	useEffect(() => { load(); }, [load]);
 
 	useImperativeHandle(ref, () => ({ reload: () => { void load(); } }), [load]);
+
+		// Color update logic removed
 
 	const groups = useMemo(() => {
 		const map: Record<string, Crack[]> = {};
@@ -148,7 +152,7 @@ export const ProjectCracks = forwardRef<ProjectCracksHandle, { projectId: number
 														setVideoOpen(true);
 													}
 												};
-												const dims = [formatNum(r.lengthMm), formatNum(r.widthMm), formatNum(r.heightMm)].filter(Boolean).join('×');
+															const dims = [formatNum(r.lengthMm), formatNum(r.widthMm), formatNum(r.heightMm)].filter(Boolean).join('×');
 												return (
 													<tr key={r.id} className="hover:bg-muted/30">
 														<td className="px-2 py-1 text-left tabular-nums align-top leading-tight">#{r.id}</td>

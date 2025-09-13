@@ -16,6 +16,7 @@ const CRACK_FOR_DISPLAY_SELECT = {
 	videoFileName: true,
 	startTime: true,
 	endTime: true,
+	color: true,
 	block: { select: { id: true, name: true } },
 } as const;
 
