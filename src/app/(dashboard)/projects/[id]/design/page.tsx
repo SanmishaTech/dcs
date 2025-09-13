@@ -60,7 +60,6 @@ interface Block {
 	projectId: number;
 }
 
-
 interface DesignStrokeRec {
 	id: number;
 	projectId: number;
@@ -275,11 +274,13 @@ export default function ProjectDesignPage() {
 
 	const [selectedCrackId, setSelectedCrackId] = useState<number | ''>('');
 	const [menuTarget, setMenuTarget] = useState<
-			| { type: 'canvas' }
-			| { type: 'stroke'; id: number; crackId?: number | null }
-			| null
-		>(null);
-	const [createDialog, setCreateDialog] = useState<{ crackId: number | '' } | null>(null);
+		| { type: 'canvas' }
+		| { type: 'stroke'; id: number; crackId?: number | null }
+		| null
+	>(null);
+	const [createDialog, setCreateDialog] = useState<{
+		crackId: number | '';
+	} | null>(null);
 	const [createThickness, setCreateThickness] = useState<number>(2);
 	const [createColor, setCreateColor] = useState<string>('#fef08a');
 	const [videoOpen, setVideoOpen] = useState(false);
@@ -296,11 +297,15 @@ export default function ProjectDesignPage() {
 	const [savingStrokeEdit, setSavingStrokeEdit] = useState(false); // update stroke
 
 	// Delete confirmation for rect/stroke
-	const [confirmDelete, setConfirmDelete] = useState<
-		{ type: 'stroke'; id: number } | null
-	>(null);
+	const [confirmDelete, setConfirmDelete] = useState<{
+		type: 'stroke';
+		id: number;
+	} | null>(null);
 
-	const designStrokes = useMemo(() => designStrokesData?.items || [], [designStrokesData?.items]);
+	const designStrokes = useMemo(
+		() => designStrokesData?.items || [],
+		[designStrokesData?.items]
+	);
 	const cracks = useMemo(() => cracksData?.items || [], [cracksData?.items]);
 
 	// Color selection state inside the Select Crack dialog
@@ -349,16 +354,25 @@ export default function ProjectDesignPage() {
 		const idx = crackOptions.findIndex((o) => o.value === selectedId);
 		if (idx >= 0) {
 			const sel = crackOptions[idx];
-			return [sel, ...crackOptions.slice(0, idx), ...crackOptions.slice(idx + 1)];
+			return [
+				sel,
+				...crackOptions.slice(0, idx),
+				...crackOptions.slice(idx + 1),
+			];
 		}
 		// Not found: add from current stroke's crack info (if available)
 		const st = designStrokes.find((s) => s.id === strokeEdit.id);
 		const ci = st?.crackIdentification;
 		if (ci) {
-			const chainage = [ci.chainageFrom, ci.chainageTo].filter(Boolean).join(' - ');
-			const hasDims = ci.lengthMm != null || ci.widthMm != null || ci.heightMm != null;
+			const chainage = [ci.chainageFrom, ci.chainageTo]
+				.filter(Boolean)
+				.join(' - ');
+			const hasDims =
+				ci.lengthMm != null || ci.widthMm != null || ci.heightMm != null;
 			const dims = hasDims
-				? `${formatNum(ci.lengthMm)}×${formatNum(ci.widthMm)}×${formatNum(ci.heightMm)} mm`
+				? `${formatNum(ci.lengthMm)}×${formatNum(ci.widthMm)}×${formatNum(
+						ci.heightMm
+				  )} mm`
 				: '';
 			const parts = [
 				chainage ? `Ch: ${chainage}` : null,
@@ -415,9 +429,9 @@ export default function ProjectDesignPage() {
 		);
 		const path = segs.join(' ');
 		setPendingPath(path);
-	setCreateDialog({ crackId: '' });
-	setCreateThickness(2);
-	setCreateColor('#fef08a');
+		setCreateDialog({ crackId: '' });
+		setCreateThickness(2);
+		setCreateColor('#fef08a');
 		setDrawing(false);
 	};
 
@@ -425,8 +439,8 @@ export default function ProjectDesignPage() {
 		setPendingPath(null);
 		setDraftPoints([]);
 		setSelectedCrackId('');
-	setCreateThickness(2);
-	setCreateColor('#fef08a');
+		setCreateThickness(2);
+		setCreateColor('#fef08a');
 	};
 
 	const savePending = async () => {
@@ -444,19 +458,23 @@ export default function ProjectDesignPage() {
 					res = await fetch(`/api/design-strokes/${existing.id}`, {
 						method: 'PATCH',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ path: pendingPath, thickness: createThickness || existing.thickness || 2, color: createColor }),
+						body: JSON.stringify({
+							path: pendingPath,
+							thickness: createThickness || existing.thickness || 2,
+							color: createColor,
+						}),
 					});
 					ok = res.ok;
 				} else {
-		    res = await fetch('/api/design-strokes', {
+					res = await fetch('/api/design-strokes', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify({
 							projectId,
 							crackIdentificationId: selectedCrackId,
 							path: pendingPath,
-			    thickness: createThickness || 2,
-			    color: createColor,
+							thickness: createThickness || 2,
+							color: createColor,
 						}),
 					});
 					ok = res.ok;
@@ -536,28 +554,35 @@ export default function ProjectDesignPage() {
 								return (
 									<g key={`stroke-${s.id}`}>
 										<title>{tooltipTitle}</title>
-												<path
+										<path
 											d={s.path}
 											fill='none'
-													stroke={(() => {
-														const c = s.color;
-														if (!c) return 'rgba(254,240,138,0.7)';
-														if (c === 'yellow') return 'rgba(254,240,138,0.7)';
-														if (c === 'red') return 'rgba(239,68,68,0.7)';
-														if (c === 'white') return 'rgba(255,255,255,0.7)';
-														const hex = c.trim();
-														if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
-															let hc = hex.slice(1);
-															if (hc.length === 3) hc = hc.split('').map((ch) => ch + ch).join('');
-															const num = parseInt(hc, 16);
-															const r = (num >> 16) & 255;
-															const g = (num >> 8) & 255;
-															const b = num & 255;
-															return `rgba(${r},${g},${b},0.7)`;
-														}
-														return c; // assume valid CSS color
-													})()}
-											strokeWidth={Math.max(0.5, ((s.thickness || 2) * 0.5) / (scale || 1))}
+											stroke={(() => {
+												const c = s.color;
+												if (!c) return 'rgba(254,240,138,0.7)';
+												if (c === 'yellow') return 'rgba(254,240,138,0.7)';
+												if (c === 'red') return 'rgba(239,68,68,0.7)';
+												if (c === 'white') return 'rgba(255,255,255,0.7)';
+												const hex = c.trim();
+												if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
+													let hc = hex.slice(1);
+													if (hc.length === 3)
+														hc = hc
+															.split('')
+															.map((ch) => ch + ch)
+															.join('');
+													const num = parseInt(hc, 16);
+													const r = (num >> 16) & 255;
+													const g = (num >> 8) & 255;
+													const b = num & 255;
+													return `rgba(${r},${g},${b},0.7)`;
+												}
+												return c; // assume valid CSS color
+											})()}
+											strokeWidth={Math.max(
+												0.5,
+												((s.thickness || 2) * 0.5) / (scale || 1)
+											)}
 											strokeLinecap='round'
 											strokeLinejoin='round'
 											className='cursor-pointer'
@@ -613,7 +638,11 @@ export default function ProjectDesignPage() {
 										const hex = c.trim();
 										if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
 											let hc = hex.slice(1);
-											if (hc.length === 3) hc = hc.split('').map((ch) => ch + ch).join('');
+											if (hc.length === 3)
+												hc = hc
+													.split('')
+													.map((ch) => ch + ch)
+													.join('');
 											const num = parseInt(hc, 16);
 											const r = (num >> 16) & 255;
 											const g = (num >> 8) & 255;
@@ -622,7 +651,10 @@ export default function ProjectDesignPage() {
 										}
 										return c;
 									})()}
-									strokeWidth={Math.max(0.5, ((createThickness || 2) * 0.5) / (scale || 1))}
+									strokeWidth={Math.max(
+										0.5,
+										((createThickness || 2) * 0.5) / (scale || 1)
+									)}
 									strokeLinecap='round'
 									strokeLinejoin='round'
 								/>
@@ -638,7 +670,9 @@ export default function ProjectDesignPage() {
 								<ContextMenuItem
 									onSelect={() => {
 										if (menuTarget?.type === 'stroke') {
-											const s = designStrokes.find((x) => x.id === menuTarget.id);
+											const s = designStrokes.find(
+												(x) => x.id === menuTarget.id
+											);
 											if (s) {
 												let col = s.color || '#fef08a';
 												if (col === 'yellow') col = '#fef08a';
@@ -681,8 +715,8 @@ export default function ProjectDesignPage() {
 						</>
 					) : null}
 				</ContextMenuContent>
-				</ContextMenu>
-			) : (
+			</ContextMenu>
+		) : (
 			<div
 				className='absolute top-0 left-0'
 				style={{ width: natural.w, height: natural.h }}
@@ -697,34 +731,41 @@ export default function ProjectDesignPage() {
 					height={natural.h}
 					viewBox={`0 0 ${natural.w} ${natural.h}`}
 				>
-							{designStrokes.map((s) => (
-								<path
-									key={`stroke-${s.id}`}
-									d={s.path}
-									fill='none'
-									stroke={(() => {
-										const c = s.color;
-										if (!c) return 'rgba(254,240,138,0.7)';
-										if (c === 'yellow') return 'rgba(254,240,138,0.7)';
-										if (c === 'red') return 'rgba(239,68,68,0.7)';
-										if (c === 'white') return 'rgba(255,255,255,0.7)';
-										const hex = c.trim();
-										if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
-											let hc = hex.slice(1);
-											if (hc.length === 3) hc = hc.split('').map((ch) => ch + ch).join('');
-											const num = parseInt(hc, 16);
-											const r = (num >> 16) & 255;
-											const g = (num >> 8) & 255;
-											const b = num & 255;
-											return `rgba(${r},${g},${b},0.7)`;
-										}
-										return c;
-									})()}
-									strokeWidth={Math.max(0.5, ((s.thickness || 2) * 0.5) / (scale || 1))}
-									strokeLinecap='round'
-									strokeLinejoin='round'
-								/>
-							))}
+					{designStrokes.map((s) => (
+						<path
+							key={`stroke-${s.id}`}
+							d={s.path}
+							fill='none'
+							stroke={(() => {
+								const c = s.color;
+								if (!c) return 'rgba(254,240,138,0.7)';
+								if (c === 'yellow') return 'rgba(254,240,138,0.7)';
+								if (c === 'red') return 'rgba(239,68,68,0.7)';
+								if (c === 'white') return 'rgba(255,255,255,0.7)';
+								const hex = c.trim();
+								if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
+									let hc = hex.slice(1);
+									if (hc.length === 3)
+										hc = hc
+											.split('')
+											.map((ch) => ch + ch)
+											.join('');
+									const num = parseInt(hc, 16);
+									const r = (num >> 16) & 255;
+									const g = (num >> 8) & 255;
+									const b = num & 255;
+									return `rgba(${r},${g},${b},0.7)`;
+								}
+								return c;
+							})()}
+							strokeWidth={Math.max(
+								0.5,
+								((s.thickness || 2) * 0.5) / (scale || 1)
+							)}
+							strokeLinecap='round'
+							strokeLinejoin='round'
+						/>
+					))}
 					{/* Maps removed in read-only view */}
 					{mode === 'brush' && draftPoints.length > 1 && (
 						<polyline
@@ -739,7 +780,11 @@ export default function ProjectDesignPage() {
 								const hex = c.trim();
 								if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
 									let hc = hex.slice(1);
-									if (hc.length === 3) hc = hc.split('').map((ch) => ch + ch).join('');
+									if (hc.length === 3)
+										hc = hc
+											.split('')
+											.map((ch) => ch + ch)
+											.join('');
 									const num = parseInt(hc, 16);
 									const r = (num >> 16) & 255;
 									const g = (num >> 8) & 255;
@@ -748,7 +793,10 @@ export default function ProjectDesignPage() {
 								}
 								return c;
 							})()}
-							strokeWidth={Math.max(0.5, ((createThickness || 2) * 0.5) / (scale || 1))}
+							strokeWidth={Math.max(
+								0.5,
+								((createThickness || 2) * 0.5) / (scale || 1)
+							)}
 							strokeLinecap='round'
 							strokeLinejoin='round'
 						/>
@@ -834,7 +882,11 @@ export default function ProjectDesignPage() {
 								if (!o) setConfirmDelete(null);
 							}}
 							title='Delete overlay?'
-							description={confirmDelete ? `This will permanently remove stroke #${confirmDelete.id}.` : undefined}
+							description={
+								confirmDelete
+									? `This will permanently remove stroke #${confirmDelete.id}.`
+									: undefined
+							}
 							confirmText='Delete'
 							onConfirm={async () => {
 								if (confirmDelete) {
@@ -911,19 +963,31 @@ export default function ProjectDesignPage() {
 												type='button'
 												title='Yellow'
 												onClick={() => setCreateColor('#fef08a')}
-												className={`h-5 w-5 rounded-full border bg-amber-300 ${createColor === '#fef08a' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+												className={`h-5 w-5 rounded-full border bg-amber-300 ${
+													createColor === '#fef08a'
+														? 'ring-2 ring-offset-1 ring-foreground'
+														: ''
+												}`}
 											/>
 											<button
 												type='button'
 												title='Red'
 												onClick={() => setCreateColor('#ef4444')}
-												className={`h-5 w-5 rounded-full border bg-red-500 ${createColor === '#ef4444' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+												className={`h-5 w-5 rounded-full border bg-red-500 ${
+													createColor === '#ef4444'
+														? 'ring-2 ring-offset-1 ring-foreground'
+														: ''
+												}`}
 											/>
 											<button
 												type='button'
 												title='White'
 												onClick={() => setCreateColor('#ffffff')}
-												className={`h-5 w-5 rounded-full border bg-white ${createColor === '#ffffff' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+												className={`h-5 w-5 rounded-full border bg-white ${
+													createColor === '#ffffff'
+														? 'ring-2 ring-offset-1 ring-foreground'
+														: ''
+												}`}
 											/>
 										</div>
 									</div>
@@ -981,7 +1045,7 @@ export default function ProjectDesignPage() {
 											<label className='text-sm w-24 shrink-0'>Crack</label>
 											<div className='flex-1'>
 												<AppCombobox
-													options={crackOptions}
+													options={editCrackOptions}
 													value={strokeEdit.crackId ?? null}
 													onValueChange={(v) =>
 														setStrokeEdit((s) =>
@@ -1001,25 +1065,43 @@ export default function ProjectDesignPage() {
 													type='button'
 													title='Yellow'
 													onClick={() =>
-														setStrokeEdit((s) => (s ? { ...s, color: '#fef08a' } : s))
+														setStrokeEdit((s) =>
+															s ? { ...s, color: '#fef08a' } : s
+														)
 													}
-													className={`h-5 w-5 rounded-full border bg-amber-300 ${strokeEdit.color === '#fef08a' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+													className={`h-5 w-5 rounded-full border bg-amber-300 ${
+														strokeEdit.color === '#fef08a'
+															? 'ring-2 ring-offset-1 ring-foreground'
+															: ''
+													}`}
 												/>
 												<button
 													type='button'
 													title='Red'
 													onClick={() =>
-														setStrokeEdit((s) => (s ? { ...s, color: '#ef4444' } : s))
+														setStrokeEdit((s) =>
+															s ? { ...s, color: '#ef4444' } : s
+														)
 													}
-													className={`h-5 w-5 rounded-full border bg-red-500 ${strokeEdit.color === '#ef4444' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+													className={`h-5 w-5 rounded-full border bg-red-500 ${
+														strokeEdit.color === '#ef4444'
+															? 'ring-2 ring-offset-1 ring-foreground'
+															: ''
+													}`}
 												/>
 												<button
 													type='button'
 													title='White'
 													onClick={() =>
-														setStrokeEdit((s) => (s ? { ...s, color: '#ffffff' } : s))
+														setStrokeEdit((s) =>
+															s ? { ...s, color: '#ffffff' } : s
+														)
 													}
-													className={`h-5 w-5 rounded-full border bg-white ${strokeEdit.color === '#ffffff' ? 'ring-2 ring-offset-1 ring-foreground' : ''}`}
+													className={`h-5 w-5 rounded-full border bg-white ${
+														strokeEdit.color === '#ffffff'
+															? 'ring-2 ring-offset-1 ring-foreground'
+															: ''
+													}`}
 												/>
 											</div>
 										</div>

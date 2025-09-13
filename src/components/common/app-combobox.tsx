@@ -101,7 +101,7 @@ function BaseCombobox(props: BaseProps) {
           {required ? <span className="ml-0.5 text-destructive">*</span> : null}
         </FormLabel>
       )}
-      <Popover open={open} onOpenChange={setOpen}>
+  <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             type="button"
@@ -134,7 +134,7 @@ function BaseCombobox(props: BaseProps) {
             </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className={cn("p-0", contentClassName)} align="start">
+  <PopoverContent className={cn("p-0", contentClassName)} align="start">
           <Command>
             <CommandInput placeholder={searchPlaceholder} />
             <CommandList>
