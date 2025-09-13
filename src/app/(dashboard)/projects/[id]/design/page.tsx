@@ -945,18 +945,16 @@ export default function ProjectDesignPage() {
 						{canWrite && (
 							<div className='mt-1 text-xs text-muted-foreground'>
 								<div className='font-medium text-foreground'>
-									Add / update maps
+									Add / update strokes
 								</div>
 								<ul className='list-disc pl-5 space-y-1'>
 									<li>
-										Right-click on the image and choose “New Map”, then drag to
-										draw a rectangle.
+										Right-click the image and choose “New Stroke”, then drag to draw the crack path.
 									</li>
 									<li>
-										Select a crack in the dialog and click Save to create the
-										map.
+										In the dialog, optionally filter by Block, select the Crack, and choose a Color; click Save to create the stroke.
 									</li>
-									<li>Right-click an existing map to Edit or Delete it.</li>
+									<li>Right-click an existing stroke to Edit (change crack/color) or Delete it.</li>
 									<li>Press ESC to cancel drawing.</li>
 								</ul>
 							</div>
