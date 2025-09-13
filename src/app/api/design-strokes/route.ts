@@ -62,8 +62,13 @@ export async function POST(req: NextRequest) {
   if (!projectId) return Error('projectId required', 400);
   if (!crackIdentificationId) return Error('crackIdentificationId required', 400);
   if (!path || typeof path !== 'string') return Error('path required', 400);
-  // Basic path validation: must start with 'M' and contain at least one 'L'
-  const pathOk = /^M\s*[-\d.]+\s+[-\d.]+(\s+L\s*[-\d.]+\s+[-\d.]+)+\s*$/i.test(path.trim());
+  // Basic path validation
+  // Accept either pixel-based:  "M x y L x y ..."
+  // or normalized:             "N M x y L x y ..." (x,y in 0..1)
+  const trimmed = path.trim();
+  const pixelRE = /^M\s*[-\d.]+\s+[-\d.]+(\s+L\s*[-\d.]+\s+[-\d.]+)+\s*$/i;
+  const normRE = /^N\s+M\s*[-\d.]+\s+[-\d.]+(\s+L\s*[-\d.]+\s+[-\d.]+)+\s*$/i;
+  const pathOk = pixelRE.test(trimmed) || normRE.test(trimmed);
   if (!pathOk) return Error('Invalid path format', 400);
   try {
     // Ensure crack belongs to project

@@ -23,7 +23,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   const { path, thickness, color, crackIdentificationId } = body as Partial<{ path: string; thickness: number; color: string | null; crackIdentificationId: number }>;
   const data: Record<string, unknown> = {};
   if (typeof path === 'string') {
-    const ok = /^M\s*[-\d.]+\s+[-\d.]+(\s+L\s*[-\d.]+\s+[-\d.]+)+\s*$/i.test(path.trim());
+    const trimmed = path.trim();
+    const pixelRE = /^M\s*[-\d.]+\s+[-\d.]+(\s+L\s*[-\d.]+\s+[-\d.]+)+\s*$/i;
+    const normRE = /^N\s+M\s*[-\d.]+\s+[-\d.]+(\s+L\s*[-\d.]+\s+[-\d.]+)+\s*$/i;
+    const ok = pixelRE.test(trimmed) || normRE.test(trimmed);
     if (!ok) return Error('Invalid path format', 400);
     data.path = path;
   }

@@ -98,12 +98,14 @@ function DesignImageView({
 	onImageLoad: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 	natural: Natural;
 	containerRef: React.RefObject<HTMLDivElement>;
-	overlay: (scale: number) => React.ReactNode;
+	overlay: (scale: number, displaySize: { w: number; h: number } | null) => React.ReactNode;
 	drawing: boolean;
 	loadingImage: boolean;
 }) {
 	const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
 	const [scale, setScale] = useState(0.2);
+	const imgRef = useRef<HTMLImageElement | null>(null);
+	const [imgDisplaySize, setImgDisplaySize] = useState<{ w: number; h: number } | null>(null);
 	const wrapperRef = useRef<HTMLDivElement | null>(null);
 	const [availH, setAvailH] = useState<number | null>(null);
 
@@ -122,6 +124,28 @@ function DesignImageView({
 		window.addEventListener('resize', calc);
 		return () => window.removeEventListener('resize', calc);
 	}, []);
+
+	// helper to recompute displayed (pre-transform) size of the image
+	const recomputeDisplaySize = (currentScale?: number) => {
+		try {
+			const img = imgRef.current;
+			if (!img) return;
+			const rect = img.getBoundingClientRect();
+			const sc = currentScale ?? scale ?? 1;
+			const baseW = rect.width / (sc || 1);
+			const baseH = rect.height / (sc || 1);
+			if (baseW > 0 && baseH > 0) setImgDisplaySize({ w: baseW, h: baseH });
+		} catch {}
+	};
+
+	useEffect(() => {
+		recomputeDisplaySize();
+		// update when window resizes
+		const onR = () => recomputeDisplaySize();
+		window.addEventListener('resize', onR);
+		return () => window.removeEventListener('resize', onR);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [natural]);
 
 	return (
 		<div className='relative'>
@@ -173,7 +197,10 @@ function DesignImageView({
 				<TransformWrapper
 					ref={transformRef}
 					initialScale={20}
-					onTransformed={(ref) => setScale(ref.state.scale)}
+					onTransformed={(ref) => {
+						setScale(ref.state.scale);
+						recomputeDisplaySize(ref.state.scale);
+					}}
 					minScale={0.2}
 					maxScale={50}
 					limitToBounds
@@ -186,13 +213,17 @@ function DesignImageView({
 						<div ref={containerRef} className='relative inline-block'>
 							{/* eslint-disable-next-line @next/next/no-img-element */}
 							<img
+								ref={imgRef}
 								src={src}
 								alt='design'
-								onLoad={onImageLoad}
-								className='block max-w-full h-auto select-none'
+								onLoad={(e) => {
+									onImageLoad(e);
+									recomputeDisplaySize();
+								}}
+								className='block select-none'
 								draggable={false}
 							/>
-							{overlay(scale)}
+							{overlay(scale, imgDisplaySize)}
 						</div>
 					</TransformComponent>
 				</TransformWrapper>
@@ -281,7 +312,7 @@ export default function ProjectDesignPage() {
 	const [createDialog, setCreateDialog] = useState<{
 		crackId: number | '';
 	} | null>(null);
-	const [createThickness, setCreateThickness] = useState<number>(2);
+	const [createThickness, setCreateThickness] = useState<number>(5);
 	const [createColor, setCreateColor] = useState<string>('#fef08a');
 	const [videoOpen, setVideoOpen] = useState(false);
 	const [videoCrack, setVideoCrack] = useState<CrackInfo | null>(null);
@@ -400,18 +431,33 @@ export default function ProjectDesignPage() {
 		if (e.button !== 0) return;
 		if (!drawing || !natural) return;
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-		const scale = rect.width / natural.w || 1;
-		const x = (e.clientX - rect.left) / scale;
-		const y = (e.clientY - rect.top) / scale;
+		const scaleX = rect.width / natural.w || 1;
+		const scaleY = rect.height / natural.h || 1;
+		const x = (e.clientX - rect.left) / scaleX;
+		const y = (e.clientY - rect.top) / scaleY;
+		try {
+			if (typeof window !== 'undefined' && localStorage.getItem('dcsDebugDraw') === '1') {
+				// Debug pointer down mapping
+				console.debug('[dcs] pointerDown', {
+					rect: { w: rect.width, h: rect.height, left: rect.left, top: rect.top },
+					natural,
+					scaleX,
+					scaleY,
+					x,
+					y,
+				});
+			}
+		} catch {}
 		setDraftPoints([{ x, y }]);
 	};
 
 	const handlePointerMove = (e: React.PointerEvent) => {
 		if (!drawing || !natural) return;
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-		const scale = rect.width / natural.w || 1;
-		const x = (e.clientX - rect.left) / scale;
-		const y = (e.clientY - rect.top) / scale;
+		const scaleX = rect.width / natural.w || 1;
+		const scaleY = rect.height / natural.h || 1;
+		const x = (e.clientX - rect.left) / scaleX;
+		const y = (e.clientY - rect.top) / scaleY;
 		setDraftPoints((pts) => (pts.length ? [...pts, { x, y }] : pts));
 	};
 
@@ -422,15 +468,22 @@ export default function ProjectDesignPage() {
 			setDrawing(false);
 			return;
 		}
-		const round = (v: number) => Number(v.toFixed(2));
+		// Save as normalized coordinates (0..1) for resolution independence
+		if (!natural) return;
+		const roundN = (v: number) => Number(v.toFixed(6));
 		const [p0, ...rest] = draftPoints;
-		const segs = [`M ${round(p0.x)} ${round(p0.y)}`].concat(
-			rest.map((p) => `L ${round(p.x)} ${round(p.y)}`)
+		const segs = [`M ${roundN(p0.x / natural.w)} ${roundN(p0.y / natural.h)}`].concat(
+			rest.map((p) => `L ${roundN(p.x / natural.w)} ${roundN(p.y / natural.h)}`)
 		);
-		const path = segs.join(' ');
+		const path = `N ${segs.join(' ')}`;
+		try {
+			if (typeof window !== 'undefined' && localStorage.getItem('dcsDebugDraw') === '1') {
+				console.debug('[dcs] pointerUp-save', { natural, points: draftPoints.slice(0, 3), path });
+			}
+		} catch {}
 		setPendingPath(path);
 		setCreateDialog({ crackId: '' });
-		setCreateThickness(2);
+		setCreateThickness(5);
 		setCreateColor('#fef08a');
 		setDrawing(false);
 	};
@@ -439,7 +492,7 @@ export default function ProjectDesignPage() {
 		setPendingPath(null);
 		setDraftPoints([]);
 		setSelectedCrackId('');
-		setCreateThickness(2);
+		setCreateThickness(5);
 		setCreateColor('#fef08a');
 	};
 
@@ -488,7 +541,7 @@ export default function ProjectDesignPage() {
 				setPendingPath(null);
 				setDraftPoints([]);
 				setCreateDialog(null);
-				setCreateThickness(2);
+								setCreateThickness(5);
 				setCreateColor('#fef08a');
 			}
 		} catch (e) {
@@ -513,14 +566,43 @@ export default function ProjectDesignPage() {
 		}
 	}
 
-	const overlay = (scale: number) =>
+	// Render helper: converts normalized path (prefixed with 'N ') to pixels
+	const renderPath = (d: string): string => {
+		if (!natural) return d;
+		if (d.startsWith('N ')) {
+			const raw = d.slice(2);
+			const re = /([ML])\s+([0-9]*\.?[0-9]+)\s+([0-9]*\.?[0-9]+)/g;
+			let m: RegExpExecArray | null;
+			const parts: string[] = [];
+			while ((m = re.exec(raw))) {
+				const cmd = m[1];
+				const x = parseFloat(m[2]) * natural.w;
+				const y = parseFloat(m[3]) * natural.h;
+				const rx = Number(x.toFixed(2));
+				const ry = Number(y.toFixed(2));
+				parts.push(`${cmd} ${rx} ${ry}`);
+			}
+			try {
+				if (typeof window !== 'undefined' && localStorage.getItem('dcsDebugDraw') === '1') {
+					console.debug('[dcs] renderPath', { natural, first: parts[0] });
+				}
+			} catch {}
+			return parts.join(' ');
+		}
+		return d;
+	};
+
+	const overlay = (scale: number, displaySize: { w: number; h: number } | null) =>
 		natural &&
 		(canWrite ? (
 			<ContextMenu>
 				<ContextMenuTrigger asChild>
 					<div
 						className='absolute top-0 left-0'
-						style={{ width: natural.w, height: natural.h }}
+						style={{
+							width: displaySize?.w ?? natural.w,
+							height: displaySize?.h ?? natural.h,
+						}}
 						onPointerDown={handlePointerDown}
 						onPointerMove={handlePointerMove}
 						onPointerUp={handlePointerUp}
@@ -528,8 +610,8 @@ export default function ProjectDesignPage() {
 					>
 						<svg
 							className='absolute top-0 left-0 z-20'
-							width={natural.w}
-							height={natural.h}
+							width={displaySize?.w ?? natural.w}
+							height={displaySize?.h ?? natural.h}
 							viewBox={`0 0 ${natural.w} ${natural.h}`}
 						>
 							{/* Strokes */}
@@ -555,7 +637,7 @@ export default function ProjectDesignPage() {
 									<g key={`stroke-${s.id}`}>
 										<title>{tooltipTitle}</title>
 										<path
-											d={s.path}
+											d={renderPath(s.path)}
 											fill='none'
 											stroke={(() => {
 												const c = s.color;
@@ -580,8 +662,8 @@ export default function ProjectDesignPage() {
 												return c; // assume valid CSS color
 											})()}
 											strokeWidth={Math.max(
-												0.5,
-												((s.thickness || 2) * 0.5) / (scale || 1)
+												2,
+												((s.thickness || 5) * 50) / (scale || 1)
 											)}
 											strokeLinecap='round'
 											strokeLinejoin='round'
@@ -652,8 +734,8 @@ export default function ProjectDesignPage() {
 										return c;
 									})()}
 									strokeWidth={Math.max(
-										0.5,
-										((createThickness || 2) * 0.5) / (scale || 1)
+										2,
+										((createThickness || 5) * 50) / (scale || 1)
 									)}
 									strokeLinecap='round'
 									strokeLinejoin='round'
@@ -719,7 +801,10 @@ export default function ProjectDesignPage() {
 		) : (
 			<div
 				className='absolute top-0 left-0'
-				style={{ width: natural.w, height: natural.h }}
+				style={{
+					width: displaySize?.w ?? natural.w,
+					height: displaySize?.h ?? natural.h,
+				}}
 				onPointerDown={handlePointerDown}
 				onPointerMove={handlePointerMove}
 				onPointerUp={handlePointerUp}
@@ -727,14 +812,14 @@ export default function ProjectDesignPage() {
 			>
 				<svg
 					className='absolute top-0 left-0 z-20'
-					width={natural.w}
-					height={natural.h}
+					width={displaySize?.w ?? natural.w}
+					height={displaySize?.h ?? natural.h}
 					viewBox={`0 0 ${natural.w} ${natural.h}`}
 				>
 					{designStrokes.map((s) => (
 						<path
-							key={`stroke-${s.id}`}
-							d={s.path}
+									key={`stroke-${s.id}`}
+									d={renderPath(s.path)}
 							fill='none'
 							stroke={(() => {
 								const c = s.color;
@@ -759,8 +844,8 @@ export default function ProjectDesignPage() {
 								return c;
 							})()}
 							strokeWidth={Math.max(
-								0.5,
-								((s.thickness || 2) * 0.5) / (scale || 1)
+								2,
+								((s.thickness || 5) * 50) / (scale || 1)
 							)}
 							strokeLinecap='round'
 							strokeLinejoin='round'
@@ -794,8 +879,8 @@ export default function ProjectDesignPage() {
 								return c;
 							})()}
 							strokeWidth={Math.max(
-								0.5,
-								((createThickness || 2) * 0.5) / (scale || 1)
+								2,
+								((createThickness || 5) * 50) / (scale || 1)
 							)}
 							strokeLinecap='round'
 							strokeLinejoin='round'
