@@ -644,7 +644,7 @@ export default function ProjectDesignPage() {
 												if (!c) return 'rgba(254,240,138,0.7)';
 												if (c === 'yellow') return 'rgba(254,240,138,0.7)';
 												if (c === 'red') return 'rgba(239,68,68,0.7)';
-												if (c === 'white') return 'rgba(255,255,255,0.7)';
+												if (c === 'white') return 'rgba(255,255,255,0)';
 												const hex = c.trim();
 												if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
 													let hc = hex.slice(1);
@@ -716,7 +716,7 @@ export default function ProjectDesignPage() {
 										if (!c) return 'rgba(254,240,138,0.7)';
 										if (c === 'yellow') return 'rgba(254,240,138,0.7)';
 										if (c === 'red') return 'rgba(239,68,68,0.7)';
-										if (c === 'white') return 'rgba(255,255,255,0.7)';
+										if (c === 'white') return 'rgba(255,255,255,0)';
 										const hex = c.trim();
 										if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
 											let hc = hex.slice(1);
@@ -818,37 +818,41 @@ export default function ProjectDesignPage() {
 				>
 					{designStrokes.map((s) => (
 						<path
-									key={`stroke-${s.id}`}
-									d={renderPath(s.path)}
+								key={`stroke-${s.id}`}
+								d={renderPath(s.path)}
 							fill='none'
-							stroke={(() => {
-								const c = s.color;
-								if (!c) return 'rgba(254,240,138,0.7)';
-								if (c === 'yellow') return 'rgba(254,240,138,0.7)';
-								if (c === 'red') return 'rgba(239,68,68,0.7)';
-								if (c === 'white') return 'rgba(255,255,255,0.7)';
-								const hex = c.trim();
-								if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
-									let hc = hex.slice(1);
-									if (hc.length === 3)
-										hc = hc
-											.split('')
-											.map((ch) => ch + ch)
-											.join('');
-									const num = parseInt(hc, 16);
-									const r = (num >> 16) & 255;
-									const g = (num >> 8) & 255;
-									const b = num & 255;
-									return `rgba(${r},${g},${b},0.7)`;
-								}
-								return c;
-							})()}
+							stroke='rgba(255,255,255,0.9)'
 							strokeWidth={Math.max(
 								2,
 								((s.thickness || 5) * 50) / (scale || 1)
 							)}
 							strokeLinecap='round'
 							strokeLinejoin='round'
+							className='cursor-pointer'
+							onClick={() => {
+								const ci = s.crackIdentification;
+								if (!ci) {
+									setVideoCrack(null);
+									setVideoOpen(true);
+									return;
+								}
+								const payload: CrackInfo = {
+									id: ci.id,
+									blockName: ci.block?.name || null,
+									chainageFrom: ci.chainageFrom,
+									chainageTo: ci.chainageTo,
+									rl: ci.rl,
+									defectType: ci.defectType,
+									lengthMm: ci.lengthMm,
+									widthMm: ci.widthMm,
+									heightMm: ci.heightMm,
+									videoFileName: ci.videoFileName,
+									startTime: ci.startTime,
+									endTime: ci.endTime,
+								};
+								setVideoCrack(payload);
+								setVideoOpen(true);
+							}}
 						/>
 					))}
 					{/* Maps removed in read-only view */}
@@ -861,7 +865,7 @@ export default function ProjectDesignPage() {
 								if (!c) return 'rgba(254,240,138,0.7)';
 								if (c === 'yellow') return 'rgba(254,240,138,0.7)';
 								if (c === 'red') return 'rgba(239,68,68,0.7)';
-								if (c === 'white') return 'rgba(255,255,255,0.7)';
+								if (c === 'white') return 'rgba(255,255,255,0)';
 								const hex = c.trim();
 								if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex)) {
 									let hc = hex.slice(1);

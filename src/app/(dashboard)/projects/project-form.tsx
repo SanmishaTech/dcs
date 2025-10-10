@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -72,39 +71,37 @@ export default function ProjectForm({
 		},
 	});
 	const { control, handleSubmit, watch } = form;
-	const [preview, setPreview] = useState<string | null>(null);
+	const [openingImage, setOpeningImage] = useState(false);
 	const fileObj = watch('designImageFile') as File | null;
 
-	useEffect(() => {
-		(async () => {
-			if (initial?.designImage) {
-				// If looks like S3 key (starts with projects/), presign GET; else treat as legacy local path
-				if (initial.designImage.startsWith('projects/')) {
-					try {
-						const res = await fetch('/api/uploads/presign-get', {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ key: initial.designImage }),
-						});
-						if (res.ok) {
-							const data = await res.json();
-							setPreview(data.url);
-							return;
-						}
-					} catch {
-						// fallback to no preview
-					}
-					setPreview(null);
-				} else if (initial?.id) {
-					setPreview(
-						`/uploads/projects/${initial.id}/designs/${initial.designImage}`
-					);
-				}
-			} else {
-				setPreview(null);
+	const handleOpenDesignImage = async () => {
+		if (!initial?.designImage) return;
+		try {
+			setOpeningImage(true);
+			let url: string | null = null;
+			if (initial.designImage.startsWith('projects/')) {
+				const res = await fetch('/api/uploads/presign-get', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ key: initial.designImage }),
+				});
+				if (!res.ok) throw new Error('Failed to presign image');
+				const data = await res.json();
+				url = data.url || null;
+			} else if (initial?.id) {
+				url = `/uploads/projects/${initial.id}/designs/${initial.designImage}`;
 			}
-		})();
-	}, [initial?.designImage, initial?.id]);
+			if (url && typeof window !== 'undefined') {
+				window.open(url, '_blank', 'noopener');
+			} else {
+				toast.error('Unable to open design image');
+			}
+		} catch (e) {
+			toast.error((e as Error).message || 'Failed to open design image');
+		} finally {
+			setOpeningImage(false);
+		}
+	};
 
 	async function onSubmit(values: z.infer<typeof schema>) {
 		setSubmitting(true);
@@ -268,59 +265,17 @@ export default function ProjectForm({
 											description='Optional project design image (max 20MB).'
 											accept='image/*'
 											maxSizeBytes={20 * 1024 * 1024}
-											onFileChange={async (f) => {
-												if (f) {
-													// Immediate local preview via data URL
-													const reader = new FileReader();
-													reader.onload = () =>
-														setPreview(reader.result as string);
-													reader.readAsDataURL(f);
-												} else {
-													// Recompute preview from initial data
-													if (initial?.designImage) {
-														if (initial.designImage.startsWith('projects/')) {
-															try {
-																const res = await fetch(
-																	'/api/uploads/presign-get',
-																	{
-																		method: 'POST',
-																		headers: {
-																			'Content-Type': 'application/json',
-																		},
-																		body: JSON.stringify({
-																			key: initial.designImage,
-																		}),
-																	}
-																);
-																if (res.ok) {
-																	const data = await res.json();
-																	setPreview(data.url);
-																	return;
-																}
-															} catch {}
-															setPreview(null);
-														} else if (initial?.id) {
-															setPreview(
-																`/uploads/projects/${initial.id}/designs/${initial.designImage}`
-															);
-														}
-													} else {
-														setPreview(null);
-													}
-												}
-											}}
 											allowClear
 										/>
-										{preview && (
-											<div className='relative w-[320px] h-[200px]'>
-												<Image
-													src={preview}
-													alt='Design preview'
-													fill
-													unoptimized
-													className='object-contain rounded border'
-												/>
-											</div>
+										{initial?.designImage && (
+											<button
+												type='button'
+												onClick={handleOpenDesignImage}
+												disabled={openingImage}
+												className='text-sm text-primary underline hover:no-underline disabled:opacity-60 text-left p-0'
+											>
+												{openingImage ? 'Opening…' : 'Open current design image'}
+											</button>
 										)}
 									</div>
 								</div>
