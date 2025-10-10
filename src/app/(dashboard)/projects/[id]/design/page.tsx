@@ -818,45 +818,67 @@ export default function ProjectDesignPage() {
 					height={displaySize?.h ?? natural.h}
 					viewBox={`0 0 ${natural.w} ${natural.h}`}
 				>
-					{designStrokes.map((s) => (
-						<path
-								key={`stroke-${s.id}`}
-								d={renderPath(s.path)}
-							fill='none'
-							stroke='rgba(255,255,255,0.9)'
-							strokeWidth={Math.max(
-								2,
-								((s.thickness || 5) * 50) / (scale || 1)
-							)}
-							strokeLinecap='round'
-							strokeLinejoin='round'
-							className='cursor-pointer'
-							onClick={() => {
-								const ci = s.crackIdentification;
-								if (!ci) {
-									setVideoCrack(null);
+					{designStrokes.map((s) => {
+						const ci = s.crackIdentification;
+						const tooltipTitle = ci
+							? [
+									ci.defectType || '',
+									ci.block?.name ? `Block: ${ci.block.name}` : '',
+									[ci.chainageFrom, ci.chainageTo]
+										.filter(Boolean)
+										.join(' - ')
+										? `Ch: ${[ci.chainageFrom, ci.chainageTo]
+											.filter(Boolean)
+											.join(' - ')}`
+										: '',
+									ci.rl != null ? `RL: ${ci.rl}` : '',
+							  ]
+									.filter(Boolean)
+									.join(' | ')
+							: `#${s.id}`;
+						const strokeColor = 'rgba(255,255,255,0)';
+						return (
+							<g key={`stroke-${s.id}`}>
+								<title>{tooltipTitle}</title>
+								<path
+									d={renderPath(s.path)}
+									fill='none'
+									stroke={strokeColor}
+									strokeWidth={Math.max(
+										2,
+										((s.thickness || 5) * 50) / (scale || 1)
+									)}
+									strokeLinecap='round'
+									strokeLinejoin='round'
+									className='cursor-pointer'
+									onClick={() => {
+									const ciInner = s.crackIdentification;
+									if (!ciInner) {
+										setVideoCrack(null);
+										setVideoOpen(true);
+										return;
+									}
+									const payload: CrackInfo = {
+										id: ciInner.id,
+										blockName: ciInner.block?.name || null,
+										chainageFrom: ciInner.chainageFrom,
+										chainageTo: ciInner.chainageTo,
+										rl: ciInner.rl,
+										defectType: ciInner.defectType,
+										lengthMm: ciInner.lengthMm,
+										widthMm: ciInner.widthMm,
+										heightMm: ciInner.heightMm,
+										videoFileName: ciInner.videoFileName,
+										startTime: ciInner.startTime,
+										endTime: ciInner.endTime,
+									};
+									setVideoCrack(payload);
 									setVideoOpen(true);
-									return;
-								}
-								const payload: CrackInfo = {
-									id: ci.id,
-									blockName: ci.block?.name || null,
-									chainageFrom: ci.chainageFrom,
-									chainageTo: ci.chainageTo,
-									rl: ci.rl,
-									defectType: ci.defectType,
-									lengthMm: ci.lengthMm,
-									widthMm: ci.widthMm,
-									heightMm: ci.heightMm,
-									videoFileName: ci.videoFileName,
-									startTime: ci.startTime,
-									endTime: ci.endTime,
-								};
-								setVideoCrack(payload);
-								setVideoOpen(true);
-							}}
-						/>
-					))}
+								}}
+								/>
+							</g>
+						);
+					})}
 					{/* Maps removed in read-only view */}
 					{mode === 'brush' && draftPoints.length > 1 && (
 						<polyline
