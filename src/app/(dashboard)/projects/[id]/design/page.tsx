@@ -657,7 +657,8 @@ export default function ProjectDesignPage() {
 													const r = (num >> 16) & 255;
 													const g = (num >> 8) & 255;
 													const b = num & 255;
-													return `rgba(${r},${g},${b},0.7)`;
+													const alpha = r === 255 && g === 255 && b === 255 ? 0 : 0.7;
+													return `rgba(${r},${g},${b},${alpha})`;
 												}
 												return c; // assume valid CSS color
 											})()}
@@ -729,7 +730,8 @@ export default function ProjectDesignPage() {
 											const r = (num >> 16) & 255;
 											const g = (num >> 8) & 255;
 											const b = num & 255;
-											return `rgba(${r},${g},${b},0.7)`;
+											const alpha = r === 255 && g === 255 && b === 255 ? 0 : 0.7;
+											return `rgba(${r},${g},${b},${alpha})`;
 										}
 										return c;
 									})()}
@@ -759,7 +761,7 @@ export default function ProjectDesignPage() {
 												let col = s.color || '#fef08a';
 												if (col === 'yellow') col = '#fef08a';
 												if (col === 'red') col = '#ef4444';
-												if (col === 'white') col = '#ffffff';
+												if (col === 'white') col = '#ffffff21';
 												setStrokeEdit({
 													id: s.id,
 													crackId: s.crackIdentificationId,
